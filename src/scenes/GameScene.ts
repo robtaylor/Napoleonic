@@ -16,6 +16,9 @@ import { EdgeLine } from "../ui/EdgeLine";
 import { TroopSprite } from "../ui/TroopSprite";
 import { SelectionManager } from "../ui/SelectionManager";
 import type { GameConfig } from "./MenuScene";
+import type { AIController } from "../game/ai/AIController";
+import { EasyAI } from "../game/ai/EasyAI";
+import type { FactionId } from "../data/factions";
 
 export class GameScene extends Phaser.Scene {
     private config: GameConfig = { humanFactions: ["british"], scenarioIndex: 0 };
@@ -32,6 +35,7 @@ export class GameScene extends Phaser.Scene {
     private troopMoveSystem!: TroopMovementSystem;
     private combatSystem!: CombatSystem;
     private victorySystem!: VictorySystem;
+    private aiControllers: AIController[] = [];
 
     // Screen positions for nodes
     private posMap: Map<string, NodePosition> = new Map();
@@ -88,6 +92,15 @@ export class GameScene extends Phaser.Scene {
         this.combatSystem = new CombatSystem();
         this.victorySystem = new VictorySystem();
 
+        // Init AI for non-human factions
+        this.aiControllers = [];
+        const allFactions: FactionId[] = ["french", "british", "spanish"];
+        for (const fid of allFactions) {
+            if (!this.config.humanFactions.includes(fid)) {
+                this.aiControllers.push(new EasyAI(fid));
+            }
+        }
+
         // Draw edges
         for (const [fromId, toId] of EDGES) {
             const from = this.posMap.get(fromId);
@@ -118,7 +131,7 @@ export class GameScene extends Phaser.Scene {
         // Selection manager
         this.selectionManager = new SelectionManager(this.nodeSprites, this.edgeLines);
         this.selectionManager.onDispatch = (fromId, toId) => {
-            this.handleDispatch(fromId, toId);
+            this.handleHumanDispatch(fromId, toId);
         };
 
         // Camera
@@ -135,32 +148,33 @@ export class GameScene extends Phaser.Scene {
         this.scene.launch("HUDScene", { gameState: this.gameState });
     }
 
-    private handleDispatch(fromId: string, toId: string): void {
+    /** Human dispatch - checks isHuman before executing */
+    private handleHumanDispatch(fromId: string, toId: string): void {
         const fromNode = this.gameState.nodes.get(fromId);
         if (!fromNode) return;
 
-        // Only dispatch from nodes you own
-        // (For multiplayer: any human faction can dispatch their nodes)
         const faction = this.gameState.factions.get(fromNode.owner);
         if (!faction || !faction.isHuman) return;
 
-        // Calculate troops to send
+        this.executeDispatch(fromId, toId);
+    }
+
+    /** Core dispatch logic used by both human and AI */
+    private executeDispatch(fromId: string, toId: string): void {
+        const fromNode = this.gameState.nodes.get(fromId);
+        if (!fromNode) return;
+
         const sendCount = Math.floor(fromNode.troops * DISPATCH_FRACTION);
         if (sendCount < 1) return;
         if (fromNode.troops - sendCount < MIN_GARRISON) return;
-
-        // Verify connection
         if (!this.gameState.areConnected(fromId, toId)) return;
 
-        // Deduct from source
         fromNode.troops -= sendCount;
 
-        // Get screen positions
         const fromPos = this.posMap.get(fromId);
         const toPos = this.posMap.get(toId);
         if (!fromPos || !toPos) return;
 
-        // Create dispatch in game state
         const dispatch = this.gameState.createDispatch(
             fromId,
             toId,
@@ -172,7 +186,6 @@ export class GameScene extends Phaser.Scene {
             toPos.screenY,
         );
 
-        // Create visual sprite
         const sprite = new TroopSprite(
             this,
             dispatch.id,
@@ -186,7 +199,6 @@ export class GameScene extends Phaser.Scene {
         sprite.setDepth(5);
         this.troopSprites.set(dispatch.id, sprite);
 
-        // Update source node display
         this.updateNodeSprite(fromId);
     }
 
@@ -247,6 +259,16 @@ export class GameScene extends Phaser.Scene {
 
         // Update elapsed time
         this.gameState.elapsedTime += delta / 1000;
+
+        // AI evaluation
+        for (const ai of this.aiControllers) {
+            const faction = this.gameState.factions.get(ai.factionId);
+            if (faction && !faction.eliminated) {
+                ai.update(this.gameState, delta, (fromId, toId) => {
+                    this.executeDispatch(fromId, toId);
+                });
+            }
+        }
 
         // Troop generation
         this.troopGenSystem.update(this.gameState, delta);
