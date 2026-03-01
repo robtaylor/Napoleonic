@@ -1,10 +1,50 @@
 import Phaser from "phaser";
 import { FACTIONS, type FactionId } from "../data/factions";
+import type { VictoryReason } from "../game/systems/VictorySystem";
 
 interface VictoryData {
     winner: FactionId;
-    reason: "domination" | "majority" | "timeout";
+    reason: VictoryReason;
 }
+
+const VICTORY_TEXT: Record<VictoryReason, Record<FactionId, string>> = {
+    elimination: {
+        french: "The Grand Armée has swept all opposition from Iberia!",
+        british: "Wellington's forces stand alone — all enemies vanquished!",
+        spanish: "Viva España! The invaders have been driven from our soil!",
+        neutral: "",
+    },
+    domination: {
+        french: "France dominates the peninsula — resistance is futile.",
+        british: "Britannia rules — the peninsula is liberated!",
+        spanish: "Spain is free! Every city flies our banner!",
+        neutral: "",
+    },
+    french_hold: {
+        french: "Napoleon's grip on Iberia is absolute. 20 cities held for a full minute — unshakeable!",
+        british: "",
+        spanish: "",
+        neutral: "",
+    },
+    british_expel: {
+        french: "",
+        british: "The French position has become untenable. Wellington's strategy of attrition succeeds!",
+        spanish: "",
+        neutral: "",
+    },
+    spanish_endure: {
+        french: "",
+        british: "",
+        spanish: "Three years of guerrilla warfare pay off. Spain endures — the French cannot!",
+        neutral: "",
+    },
+    timeout: {
+        french: "Time expired — France holds the most territory on the peninsula.",
+        british: "Time expired — the British-Portuguese alliance controls the most cities.",
+        spanish: "Time expired — Spanish resilience holds the most ground.",
+        neutral: "",
+    },
+};
 
 export class VictoryScene extends Phaser.Scene {
     constructor() {
@@ -36,24 +76,21 @@ export class VictoryScene extends Phaser.Scene {
             })
             .setOrigin(0.5);
 
-        const reasonText =
-            data.reason === "domination"
-                ? "All enemy cities captured"
-                : data.reason === "timeout"
-                  ? "Most cities held when time expired"
-                  : "Majority control achieved";
+        const reasonText = VICTORY_TEXT[data.reason]?.[data.winner] || "Victory achieved!";
 
         this.add
             .text(width / 2, height / 3 + 90, reasonText, {
                 fontFamily: "Georgia, serif",
-                fontSize: "18px",
+                fontSize: "16px",
                 color: "#a0956a",
+                wordWrap: { width: width * 0.7 },
+                align: "center",
             })
             .setOrigin(0.5);
 
         // Play again button
         const btn = this.add
-            .text(width / 2, height / 2 + 60, "[ Play Again ]", {
+            .text(width / 2, height / 2 + 80, "[ Play Again ]", {
                 fontFamily: "Georgia, serif",
                 fontSize: "28px",
                 color: "#ffffff",

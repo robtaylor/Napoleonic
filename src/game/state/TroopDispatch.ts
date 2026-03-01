@@ -1,5 +1,7 @@
 import type { FactionId } from "../../data/factions";
 
+export type DispatchType = "troops" | "engineer" | "scout";
+
 /** A group of troops moving along an edge between two nodes */
 export interface TroopDispatch {
     id: number;
@@ -15,4 +17,6 @@ export interface TroopDispatch {
     /** Screen coordinates of destination node */
     toX: number;
     toY: number;
+    /** Type of dispatch */
+    dispatchType: DispatchType;
 }

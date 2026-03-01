@@ -1,5 +1,11 @@
 import { AIController, type DispatchFn } from "./AIController";
-import { DISPATCH_FRACTION, MIN_GARRISON, TROOP_GEN_RATE } from "../../config/constants";
+import {
+    DISPATCH_FRACTION,
+    MIN_GARRISON,
+    TROOP_GEN_RATE,
+    FORTIFY_COST,
+    FORTIFY_BUILD_TIME_S,
+} from "../../config/constants";
 import type { FactionId } from "../../data/factions";
 import type { GameState } from "../state/GameState";
 import type { NodeState } from "../state/NodeState";
@@ -10,10 +16,12 @@ import type { NodeState } from "../state/NodeState";
  * - Computes expected outcome of each possible attack
  * - Manages economy: avoids sending all troops, keeps reserves
  * - Multiple dispatches per evaluation when advantageous
+ * - Supply-aware: avoids overextending, fortifies frontier
  */
 export class HardAI extends AIController {
     private actionsThisTurn = 0;
     private readonly maxActionsPerTurn = 2;
+    private fortifyCooldown = 0;
 
     constructor(factionId: FactionId) {
         super(factionId, 1500); // Faster evaluation: every 1.5 seconds
@@ -23,6 +31,13 @@ export class HardAI extends AIController {
         this.actionsThisTurn = 0;
         const owned = this.getOwnedNodes(state);
         if (owned.length === 0) return;
+
+        // Fortification: Hard AI fortifies frontier nodes
+        this.fortifyCooldown -= this.evaluationIntervalMs;
+        if (this.fortifyCooldown <= 0) {
+            this.tryFortify(state, owned);
+            this.fortifyCooldown = 10000; // Check every 10 seconds
+        }
 
         // Score all possible attacks
         const candidates: {
@@ -50,7 +65,7 @@ export class HardAI extends AIController {
                         candidates.push({
                             fromId: nodeId,
                             toId: neighbor.id,
-                            utility: this.reinforceUtility(node, neighbor.troops),
+                            utility: this.reinforceUtility(state, node, neighbor.id),
                             sendCount,
                         });
                     }
@@ -95,7 +110,13 @@ export class HardAI extends AIController {
         target: NodeState,
         source: NodeState,
     ): number {
-        const surplus = sendCount - target.troops;
+        // Account for fortification
+        let effectiveSend = sendCount;
+        if (target.fortified) {
+            effectiveSend = Math.floor(sendCount * 0.7);
+        }
+
+        const surplus = effectiveSend - target.troops;
         if (surplus <= 0) return -1; // Can't win
 
         // Value of capturing the node (production potential)
@@ -108,13 +129,45 @@ export class HardAI extends AIController {
         // Bonus for overwhelming victory (more surplus = safer)
         const surplusBonus = Math.min(surplus, 10);
 
-        return captureValue + surplusBonus + sourceSafetyPenalty;
+        // Supply bonus: prefer attacking nodes that improve supply chain
+        const supplyBonus = source.supplied ? 0 : -3;
+
+        return captureValue + surplusBonus + sourceSafetyPenalty + supplyBonus;
     }
 
     /** Utility of reinforcing a friendly node */
-    private reinforceUtility(source: NodeState, targetTroops: number): number {
-        // Higher utility when target is much weaker than source
-        const diff = source.troops - targetTroops;
-        return Math.max(0, diff * 0.5 - 2);
+    private reinforceUtility(_state: GameState, source: NodeState, targetId: string): number {
+        const targetNode = _state.nodes.get(targetId);
+        if (!targetNode) return 0;
+
+        const diff = source.troops - targetNode.troops;
+        let utility = Math.max(0, diff * 0.5 - 2);
+
+        // Bonus for reinforcing unsupplied nodes (they need it more)
+        if (!targetNode.supplied) {
+            utility += 3;
+        }
+
+        return utility;
+    }
+
+    /** Try to fortify frontier nodes */
+    private tryFortify(state: GameState, owned: string[]): void {
+        for (const nodeId of owned) {
+            const node = state.nodes.get(nodeId)!;
+            if (node.fortified || node.fortifyProgress > 0) continue;
+            if (node.troops < FORTIFY_COST + MIN_GARRISON + 5) continue; // Keep some troops
+
+            // Only fortify frontier nodes (adjacent to enemy)
+            const neighbors = this.getNeighborInfo(state, nodeId);
+            const isFrontier = neighbors.some((n) => n.owner !== this.factionId);
+            const isCapital = node.type === "capital";
+
+            if (isFrontier || isCapital) {
+                node.troops -= FORTIFY_COST;
+                node.fortifyProgress = FORTIFY_BUILD_TIME_S;
+                return; // One fortify per check
+            }
+        }
     }
 }

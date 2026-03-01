@@ -1,5 +1,10 @@
 import { AIController, type DispatchFn } from "./AIController";
-import { DISPATCH_FRACTION, MIN_GARRISON } from "../../config/constants";
+import {
+    DISPATCH_FRACTION,
+    MIN_GARRISON,
+    FORTIFY_COST,
+    FORTIFY_BUILD_TIME_S,
+} from "../../config/constants";
 import type { FactionId } from "../../data/factions";
 import type { GameState } from "../state/GameState";
 
@@ -8,8 +13,11 @@ import type { GameState } from "../state/GameState";
  * - Computes a "threat" score for each owned node
  * - Prioritizes defending threatened nodes
  * - Coordinates multi-node attacks on high-value targets
+ * - Fortifies capitals when possible
  */
 export class MediumAI extends AIController {
+    private fortifyCooldown = 0;
+
     constructor(factionId: FactionId) {
         super(factionId, 2000); // Evaluates every 2 seconds
     }
@@ -17,6 +25,13 @@ export class MediumAI extends AIController {
     protected evaluate(state: GameState, dispatch: DispatchFn): void {
         const owned = this.getOwnedNodes(state);
         if (owned.length === 0) return;
+
+        // Medium AI fortifies capitals
+        this.fortifyCooldown -= this.evaluationIntervalMs;
+        if (this.fortifyCooldown <= 0) {
+            this.tryFortifyCapital(state, owned);
+            this.fortifyCooldown = 15000;
+        }
 
         // Build influence map: for each node, compute threat level
         const threats = new Map<string, number>();
@@ -112,6 +127,20 @@ export class MediumAI extends AIController {
                 dispatch(nodeId, towardFront[0]!.id);
                 return;
             }
+        }
+    }
+
+    /** Medium AI only fortifies capitals */
+    private tryFortifyCapital(state: GameState, owned: string[]): void {
+        for (const nodeId of owned) {
+            const node = state.nodes.get(nodeId)!;
+            if (node.type !== "capital") continue;
+            if (node.fortified || node.fortifyProgress > 0) continue;
+            if (node.troops < FORTIFY_COST + MIN_GARRISON + 3) continue;
+
+            node.troops -= FORTIFY_COST;
+            node.fortifyProgress = FORTIFY_BUILD_TIME_S;
+            return;
         }
     }
 }

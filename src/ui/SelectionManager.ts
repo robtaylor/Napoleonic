@@ -2,9 +2,16 @@ import type { NodeSprite } from "./NodeSprite";
 import type { EdgeLine } from "./EdgeLine";
 import { EDGES } from "../data/edges";
 
+export type DispatchMode = "troops" | "engineer" | "scout";
+
 /**
  * Manages node selection and dispatch flow.
  * Click an owned node to select it, then click a connected node to dispatch.
+ *
+ * Controls:
+ * - Single click: select node / dispatch troops
+ * - Double click connected node: dispatch scout
+ * - E key with node selected: dispatch engineer (fortify)
  */
 export class SelectionManager {
     private selectedNodeId: string | null = null;
@@ -12,6 +19,11 @@ export class SelectionManager {
     private edgeLines: EdgeLine[];
     /** Adjacency: node ID -> set of neighbor IDs */
     private adjacency: Map<string, Set<string>>;
+
+    /** Double-click detection */
+    private lastClickNodeId: string | null = null;
+    private lastClickTime = 0;
+    private static readonly DOUBLE_CLICK_MS = 400;
 
     constructor(
         nodeSprites: Map<string, NodeSprite>,
@@ -44,9 +56,29 @@ export class SelectionManager {
     }
 
     /** Called when a dispatch is to be made - override in GameScene */
-    onDispatch: ((fromId: string, toId: string) => void) | null = null;
+    onDispatch: ((fromId: string, toId: string, mode: DispatchMode) => void) | null = null;
+
+    /** Called when fortify is requested on a selected node */
+    onFortify: ((nodeId: string) => void) | null = null;
+
+    /** Handle E key press for fortification */
+    handleKeyPress(key: string): void {
+        if (key === "e" || key === "E") {
+            if (this.selectedNodeId && this.onFortify) {
+                this.onFortify(this.selectedNodeId);
+            }
+        }
+    }
 
     private onNodeClick(nodeId: string): void {
+        const now = Date.now();
+        const isDoubleClick =
+            this.lastClickNodeId === nodeId &&
+            (now - this.lastClickTime) < SelectionManager.DOUBLE_CLICK_MS;
+
+        this.lastClickNodeId = nodeId;
+        this.lastClickTime = now;
+
         if (this.selectedNodeId === null) {
             // First click: select this node
             this.select(nodeId);
@@ -56,7 +88,8 @@ export class SelectionManager {
         } else if (this.getNeighbors(this.selectedNodeId).has(nodeId)) {
             // Click connected node: dispatch
             if (this.onDispatch) {
-                this.onDispatch(this.selectedNodeId, nodeId);
+                const mode: DispatchMode = isDoubleClick ? "scout" : "troops";
+                this.onDispatch(this.selectedNodeId, nodeId, mode);
             }
             this.deselect();
         } else {

@@ -1,4 +1,4 @@
-import { TROOP_SPEED } from "../../config/constants";
+import { TROOP_SPEED, SCOUT_SPEED_MULTIPLIER } from "../../config/constants";
 import { distance } from "../../utils/math";
 import type { GameState } from "../state/GameState";
 import type { TroopDispatch } from "../state/TroopDispatch";
@@ -6,6 +6,8 @@ import type { TroopDispatch } from "../state/TroopDispatch";
 /**
  * Moves in-flight troop dispatches along their edges.
  * Returns list of dispatches that have arrived this frame.
+ *
+ * Scouts move at SCOUT_SPEED_MULTIPLIER times normal speed.
  */
 export class TroopMovementSystem {
     update(state: GameState, deltaMs: number): TroopDispatch[] {
@@ -24,7 +26,8 @@ export class TroopMovementSystem {
                 continue;
             }
 
-            const progressPerSec = TROOP_SPEED / edgeLen;
+            const speedMultiplier = dispatch.dispatchType === "scout" ? SCOUT_SPEED_MULTIPLIER : 1;
+            const progressPerSec = (TROOP_SPEED * speedMultiplier) / edgeLen;
             dispatch.progress += progressPerSec * deltaSec;
 
             if (dispatch.progress >= 1) {

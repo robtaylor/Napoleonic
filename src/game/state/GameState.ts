@@ -1,11 +1,13 @@
-import { STARTING_TROOPS } from "../../config/constants";
+import { STARTING_TROOPS, SUPPLY_MAX } from "../../config/constants";
 import type { FactionId } from "../../data/factions";
 import { NODES, type NodeDef } from "../../data/nodes";
 import { EDGES, type EdgeDef } from "../../data/edges";
 import type { ScenarioDef } from "../../data/scenarios";
 import type { NodeState } from "./NodeState";
 import type { FactionState } from "./FactionState";
-import type { TroopDispatch } from "./TroopDispatch";
+import type { TroopDispatch, DispatchType } from "./TroopDispatch";
+
+export type GameMode = "short" | "long";
 
 /**
  * Central game state container.
@@ -28,11 +30,22 @@ export class GameState {
     gameOver = false;
     winner: FactionId | null = null;
 
+    /** Game mode: short (5 min timer) or long (no timer) */
+    gameMode: GameMode = "short";
+
+    /** Continuous seconds French has held 20+ nodes (for French victory condition) */
+    frenchDominanceTimer = 0;
+
+    /** Recent guerrilla raid events for UI feedback */
+    guerrillaRaids: { nodeId: string; troopsLost: number; timestamp: number }[] = [];
+
     constructor(
         scenario: ScenarioDef,
         humanFactions: FactionId[],
+        gameMode: GameMode = "short",
     ) {
         this.edges = EDGES;
+        this.gameMode = gameMode;
 
         // Build adjacency map
         for (const [from, to] of EDGES) {
@@ -50,6 +63,11 @@ export class GameState {
                 owner,
                 troops: STARTING_TROOPS[nodeDef.type],
                 type: nodeDef.type,
+                supply: SUPPLY_MAX,
+                supplied: true,
+                fortified: false,
+                fortifyProgress: 0,
+                scoutedBy: {},
             });
         }
 
@@ -78,6 +96,7 @@ export class GameState {
         fromY: number,
         toX: number,
         toY: number,
+        dispatchType: DispatchType = "troops",
     ): TroopDispatch {
         const dispatch: TroopDispatch = {
             id: this.nextDispatchId++,
@@ -90,6 +109,7 @@ export class GameState {
             fromY,
             toX,
             toY,
+            dispatchType,
         };
         this.dispatches.push(dispatch);
         return dispatch;
@@ -131,5 +151,14 @@ export class GameState {
     /** Check if two nodes are connected */
     areConnected(nodeA: string, nodeB: string): boolean {
         return this.adjacency.get(nodeA)?.has(nodeB) ?? false;
+    }
+
+    /** Get all nodes owned by a given faction */
+    getNodesOwnedBy(factionId: FactionId): NodeState[] {
+        const result: NodeState[] = [];
+        for (const node of this.nodes.values()) {
+            if (node.owner === factionId) result.push(node);
+        }
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { FactionId } from "../data/factions";
 import { SCENARIOS } from "../data/scenarios";
+import type { GameMode } from "../game/state/GameState";
 
 export type AIDifficulty = "easy" | "medium" | "hard";
 
@@ -8,12 +9,14 @@ export interface GameConfig {
     humanFactions: FactionId[];
     scenarioIndex: number;
     aiDifficulty: AIDifficulty;
+    gameMode: GameMode;
 }
 
 export class MenuScene extends Phaser.Scene {
     private selectedFaction: FactionId = "british";
     private selectedDifficulty: AIDifficulty = "easy";
     private selectedScenario = 0;
+    private selectedMode: GameMode = "short";
     private isMultiplayer = false;
 
     constructor() {
@@ -41,7 +44,7 @@ export class MenuScene extends Phaser.Scene {
 
         // === Faction selection ===
         this.add
-            .text(width / 2, 165, "Your Faction:", {
+            .text(width / 2, 155, "Your Faction:", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#a0956a",
@@ -58,7 +61,7 @@ export class MenuScene extends Phaser.Scene {
         let fx = width / 2 - 220;
         for (const f of factions) {
             const btn = this.add
-                .text(fx, 195, f.label, {
+                .text(fx, 180, f.label, {
                     fontFamily: "Georgia, serif",
                     fontSize: "16px",
                     color: f.color,
@@ -77,7 +80,7 @@ export class MenuScene extends Phaser.Scene {
 
         // === AI Difficulty ===
         this.add
-            .text(width / 2, 250, "AI Difficulty:", {
+            .text(width / 2, 225, "AI Difficulty:", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#a0956a",
@@ -94,7 +97,7 @@ export class MenuScene extends Phaser.Scene {
         let dx = width / 2 - 120;
         for (const d of difficulties) {
             const btn = this.add
-                .text(dx, 278, d.label, {
+                .text(dx, 250, d.label, {
                     fontFamily: "Georgia, serif",
                     fontSize: "16px",
                     color: "#ffffff",
@@ -115,9 +118,48 @@ export class MenuScene extends Phaser.Scene {
             dx += 110;
         }
 
+        // === Game Mode ===
+        this.add
+            .text(width / 2, 295, "Game Mode:", {
+                fontFamily: "Georgia, serif",
+                fontSize: "16px",
+                color: "#a0956a",
+            })
+            .setOrigin(0.5);
+
+        const modes: { id: GameMode; label: string; desc: string }[] = [
+            { id: "short", label: "Short (5 min)", desc: "Quick decisive battle with timer" },
+            { id: "long", label: "Long (No limit)", desc: "War continues until decisive outcome" },
+        ];
+
+        const modeBtns: Phaser.GameObjects.Text[] = [];
+        let mx = width / 2 - 140;
+        for (const m of modes) {
+            const btn = this.add
+                .text(mx, 320, m.label, {
+                    fontFamily: "Georgia, serif",
+                    fontSize: "16px",
+                    color: "#d4c5a0",
+                    backgroundColor: m.id === this.selectedMode ? "#3d2b1f" : undefined,
+                    padding: { x: 12, y: 4 },
+                })
+                .setInteractive({ useHandCursor: true });
+
+            btn.on("pointerdown", () => {
+                this.selectedMode = m.id;
+                for (let i = 0; i < modeBtns.length; i++) {
+                    modeBtns[i]!.setBackgroundColor(
+                        modes[i]!.id === m.id ? "#3d2b1f" : "",
+                    );
+                }
+            });
+            modeBtns.push(btn);
+            mx += 180;
+        }
+
         // === Scenario ===
         this.add
-            .text(width / 2, 330, "Scenario:", {
+            .text(width / 2, 365, "Scenario:", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#a0956a",
@@ -129,7 +171,7 @@ export class MenuScene extends Phaser.Scene {
         for (let i = 0; i < SCENARIOS.length; i++) {
             const s = SCENARIOS[i]!;
             const btn = this.add
-                .text(sx, 358, `${s.year}: ${s.name}`, {
+                .text(sx, 390, `${s.year}: ${s.name}`, {
                     fontFamily: "Georgia, serif",
                     fontSize: "14px",
                     color: "#d4c5a0",
@@ -152,7 +194,7 @@ export class MenuScene extends Phaser.Scene {
 
         // === Multiplayer toggle ===
         const mpBtn = this.add
-            .text(width / 2, 420, "[ Local Multiplayer: OFF ]", {
+            .text(width / 2, 445, "[ Local Multiplayer: OFF ]", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#888888",
@@ -170,7 +212,7 @@ export class MenuScene extends Phaser.Scene {
 
         // === Start button ===
         const startBtn = this.add
-            .text(width / 2, 490, "[ START ]", {
+            .text(width / 2, 510, "[ START ]", {
                 fontFamily: "Georgia, serif",
                 fontSize: "36px",
                 color: "#ffffff",
@@ -187,13 +229,14 @@ export class MenuScene extends Phaser.Scene {
                     : [this.selectedFaction],
                 scenarioIndex: this.selectedScenario,
                 aiDifficulty: this.selectedDifficulty,
+                gameMode: this.selectedMode,
             };
             this.scene.start("GameScene", config);
         });
 
         // Controls help
         this.add
-            .text(width / 2, height - 55, "Controls: Click node to select, click neighbor to dispatch troops", {
+            .text(width / 2, height - 70, "Controls: Click node to select, click neighbor to dispatch troops", {
                 fontFamily: "Georgia, serif",
                 fontSize: "12px",
                 color: "#6b5b3e",
@@ -201,7 +244,7 @@ export class MenuScene extends Phaser.Scene {
             .setOrigin(0.5);
 
         this.add
-            .text(width / 2, height - 35, "Right-click drag to pan | Mouse wheel to zoom", {
+            .text(width / 2, height - 50, "E = Fortify selected node | Double-click = Send scout | Right-drag = Pan | Wheel = Zoom", {
                 fontFamily: "Georgia, serif",
                 fontSize: "12px",
                 color: "#6b5b3e",

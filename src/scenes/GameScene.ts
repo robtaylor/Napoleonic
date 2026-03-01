@@ -1,5 +1,11 @@
 import Phaser from "phaser";
-import { DISPATCH_FRACTION, MIN_GARRISON } from "../config/constants";
+import {
+    DISPATCH_FRACTION,
+    MIN_GARRISON,
+    FORTIFY_COST,
+    FORTIFY_BUILD_TIME_S,
+    SCOUT_COST,
+} from "../config/constants";
 import { NODES } from "../data/nodes";
 import { EDGES } from "../data/edges";
 import { SCENARIOS } from "../data/scenarios";
@@ -11,19 +17,27 @@ import { TroopGenerationSystem } from "../game/systems/TroopGenerationSystem";
 import { TroopMovementSystem } from "../game/systems/TroopMovementSystem";
 import { CombatSystem } from "../game/systems/CombatSystem";
 import { VictorySystem } from "../game/systems/VictorySystem";
+import { SupplySystem } from "../game/systems/SupplySystem";
+import { GuerrillaSystem } from "../game/systems/GuerrillaSystem";
 import { NodeSprite } from "../ui/NodeSprite";
 import { EdgeLine } from "../ui/EdgeLine";
 import { TroopSprite } from "../ui/TroopSprite";
-import { SelectionManager } from "../ui/SelectionManager";
+import { SelectionManager, type DispatchMode } from "../ui/SelectionManager";
 import type { GameConfig } from "./MenuScene";
 import type { AIController } from "../game/ai/AIController";
 import { EasyAI } from "../game/ai/EasyAI";
 import { MediumAI } from "../game/ai/MediumAI";
 import { HardAI } from "../game/ai/HardAI";
 import type { FactionId } from "../data/factions";
+import type { DispatchType } from "../game/state/TroopDispatch";
 
 export class GameScene extends Phaser.Scene {
-    private config: GameConfig = { humanFactions: ["british"], scenarioIndex: 0, aiDifficulty: "easy" };
+    private config: GameConfig = {
+        humanFactions: ["british"],
+        scenarioIndex: 0,
+        aiDifficulty: "easy",
+        gameMode: "short",
+    };
     private mapProjection!: MapProjection;
     private mapRenderer!: MapRenderer;
     private nodeSprites: Map<string, NodeSprite> = new Map();
@@ -37,6 +51,8 @@ export class GameScene extends Phaser.Scene {
     private troopMoveSystem!: TroopMovementSystem;
     private combatSystem!: CombatSystem;
     private victorySystem!: VictorySystem;
+    private supplySystem!: SupplySystem;
+    private guerrillaSystem!: GuerrillaSystem;
     private aiControllers: AIController[] = [];
 
     // Screen positions for nodes
@@ -86,13 +102,19 @@ export class GameScene extends Phaser.Scene {
 
         // Init game state from menu config
         const scenario = SCENARIOS[this.config.scenarioIndex] ?? SCENARIOS[0]!;
-        this.gameState = new GameState(scenario, this.config.humanFactions);
+        this.gameState = new GameState(
+            scenario,
+            this.config.humanFactions,
+            this.config.gameMode,
+        );
 
         // Init systems
         this.troopGenSystem = new TroopGenerationSystem();
         this.troopMoveSystem = new TroopMovementSystem();
         this.combatSystem = new CombatSystem();
         this.victorySystem = new VictorySystem();
+        this.supplySystem = new SupplySystem();
+        this.guerrillaSystem = new GuerrillaSystem();
 
         // Init AI for non-human factions
         this.aiControllers = [];
@@ -141,9 +163,17 @@ export class GameScene extends Phaser.Scene {
 
         // Selection manager
         this.selectionManager = new SelectionManager(this.nodeSprites, this.edgeLines);
-        this.selectionManager.onDispatch = (fromId, toId) => {
-            this.handleHumanDispatch(fromId, toId);
+        this.selectionManager.onDispatch = (fromId, toId, mode) => {
+            this.handleHumanDispatch(fromId, toId, mode);
         };
+        this.selectionManager.onFortify = (nodeId) => {
+            this.handleFortify(nodeId);
+        };
+
+        // Keyboard input for fortification
+        this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+            this.selectionManager.handleKeyPress(event.key);
+        });
 
         // Camera
         this.setupCamera();
@@ -156,22 +186,49 @@ export class GameScene extends Phaser.Scene {
         });
 
         // Launch HUD as overlay
-        this.scene.launch("HUDScene", { gameState: this.gameState });
+        const humanFaction = this.config.humanFactions[0] ?? "british";
+        this.scene.launch("HUDScene", {
+            gameState: this.gameState,
+            humanFaction,
+        });
     }
 
     /** Human dispatch - checks isHuman before executing */
-    private handleHumanDispatch(fromId: string, toId: string): void {
+    private handleHumanDispatch(fromId: string, toId: string, mode: DispatchMode): void {
         const fromNode = this.gameState.nodes.get(fromId);
         if (!fromNode) return;
 
         const faction = this.gameState.factions.get(fromNode.owner);
         if (!faction || !faction.isHuman) return;
 
-        this.executeDispatch(fromId, toId);
+        if (mode === "scout") {
+            this.executeScoutDispatch(fromId, toId);
+        } else {
+            this.executeDispatch(fromId, toId);
+        }
+    }
+
+    /** Handle fortify request from SelectionManager */
+    private handleFortify(nodeId: string): void {
+        const node = this.gameState.nodes.get(nodeId);
+        if (!node) return;
+
+        const faction = this.gameState.factions.get(node.owner);
+        if (!faction || !faction.isHuman) return;
+
+        if (node.fortified || node.fortifyProgress > 0) return;
+        if (node.troops < FORTIFY_COST + MIN_GARRISON) return;
+
+        // Send engineer to self (costs troops, starts fortification)
+        node.troops -= FORTIFY_COST;
+        // Directly start building (no need to move since it's on the same node)
+        node.fortifyProgress = FORTIFY_BUILD_TIME_S;
+
+        this.updateNodeSprite(nodeId);
     }
 
     /** Core dispatch logic used by both human and AI */
-    private executeDispatch(fromId: string, toId: string): void {
+    private executeDispatch(fromId: string, toId: string, dispatchType: DispatchType = "troops"): void {
         const fromNode = this.gameState.nodes.get(fromId);
         if (!fromNode) return;
 
@@ -195,6 +252,7 @@ export class GameScene extends Phaser.Scene {
             fromPos.screenY,
             toPos.screenX,
             toPos.screenY,
+            dispatchType,
         );
 
         const sprite = new TroopSprite(
@@ -213,15 +271,90 @@ export class GameScene extends Phaser.Scene {
         this.updateNodeSprite(fromId);
     }
 
+    /** Scout dispatch: sends a lightweight unit */
+    private executeScoutDispatch(fromId: string, toId: string): void {
+        const fromNode = this.gameState.nodes.get(fromId);
+        if (!fromNode) return;
+
+        if (fromNode.troops < SCOUT_COST + MIN_GARRISON) return;
+        if (!this.gameState.areConnected(fromId, toId)) return;
+
+        fromNode.troops -= SCOUT_COST;
+
+        const fromPos = this.posMap.get(fromId);
+        const toPos = this.posMap.get(toId);
+        if (!fromPos || !toPos) return;
+
+        const dispatch = this.gameState.createDispatch(
+            fromId,
+            toId,
+            fromNode.owner,
+            SCOUT_COST,
+            fromPos.screenX,
+            fromPos.screenY,
+            toPos.screenX,
+            toPos.screenY,
+            "scout",
+        );
+
+        const sprite = new TroopSprite(
+            this,
+            dispatch.id,
+            fromNode.owner,
+            SCOUT_COST,
+            fromPos.screenX,
+            fromPos.screenY,
+            toPos.screenX,
+            toPos.screenY,
+        );
+        sprite.setDepth(5);
+        this.troopSprites.set(dispatch.id, sprite);
+
+        this.updateNodeSprite(fromId);
+    }
+
     private updateNodeSprite(nodeId: string): void {
         const nodeState = this.gameState.nodes.get(nodeId);
         const sprite = this.nodeSprites.get(nodeId);
         if (!nodeState || !sprite) return;
 
-        sprite.setTroops(nodeState.troops);
         if (sprite.factionId !== nodeState.owner) {
             sprite.setFaction(nodeState.owner);
         }
+
+        // Determine if the human player can see this node's troop count
+        const humanFactions = this.config.humanFactions;
+        const isOwned = humanFactions.includes(nodeState.owner);
+        const isNeutral = nodeState.owner === "neutral";
+
+        // Check if any human faction has scouted this node or has adjacent territory
+        let scouted = isOwned || isNeutral;
+        if (!scouted) {
+            for (const hFaction of humanFactions) {
+                // Check scouted status
+                const scoutExpiry = nodeState.scoutedBy[hFaction];
+                if (scoutExpiry !== undefined && scoutExpiry > this.gameState.elapsedTime) {
+                    scouted = true;
+                    break;
+                }
+                // Adjacent to own territory = visible (border scouts)
+                const neighbors = this.gameState.adjacency.get(nodeId);
+                if (neighbors) {
+                    for (const nid of neighbors) {
+                        const neighbor = this.gameState.nodes.get(nid);
+                        if (neighbor && neighbor.owner === hFaction) {
+                            scouted = true;
+                            break;
+                        }
+                    }
+                }
+                if (scouted) break;
+            }
+        }
+
+        sprite.setTroopDisplay(nodeState.troops, scouted);
+        sprite.updateSupply(nodeState);
+        sprite.updateFortification(nodeState);
     }
 
     private setupCamera(): void {
@@ -271,7 +404,7 @@ export class GameScene extends Phaser.Scene {
         // Update elapsed time
         this.gameState.elapsedTime += delta / 1000;
 
-        // AI evaluation
+        // 1. AI evaluation
         for (const ai of this.aiControllers) {
             const faction = this.gameState.factions.get(ai.factionId);
             if (faction && !faction.eliminated) {
@@ -281,10 +414,20 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        // Troop generation
+        // 2. Troop generation (supply-aware)
         this.troopGenSystem.update(this.gameState, delta);
 
-        // Troop movement
+        // 3. Supply system (BFS + drain/restore)
+        this.supplySystem.update(this.gameState, delta);
+
+        // 4. Guerrilla system (raids on French)
+        const guerrillaEvents = this.guerrillaSystem.update(this.gameState, delta);
+        for (const event of guerrillaEvents) {
+            const sprite = this.nodeSprites.get(event.nodeId);
+            if (sprite) sprite.triggerRaidFlash();
+        }
+
+        // 5. Troop movement (speed multipliers for scouts)
         const arrived = this.troopMoveSystem.update(this.gameState, delta);
 
         // Update troop sprite positions
@@ -295,7 +438,7 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        // Resolve combat for arrived dispatches
+        // 6. Combat resolution (fortification bonus, scout bonus)
         if (arrived.length > 0) {
             this.combatSystem.resolve(this.gameState, arrived);
 
@@ -309,13 +452,25 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        // Update all node sprites from game state
+        // Update fortification progress
+        this.combatSystem.updateFortifications(this.gameState, delta);
+
+        // 7. Update all node sprites (supply indicators, "?" for unscouted)
         for (const nodeState of this.gameState.nodes.values()) {
-            this.updateNodeSprite(nodeState.id);
+            const sprite = this.nodeSprites.get(nodeState.id);
+            if (sprite) {
+                this.updateNodeSprite(nodeState.id);
+                sprite.updateRaidFlash(delta);
+            }
         }
 
-        // Victory check
-        const result = this.victorySystem.check(this.gameState);
+        // Clean old guerrilla raid records (keep last 5 seconds)
+        this.gameState.guerrillaRaids = this.gameState.guerrillaRaids.filter(
+            (r) => this.gameState.elapsedTime - r.timestamp < 5,
+        );
+
+        // 8. Victory check (asymmetric per faction)
+        const result = this.victorySystem.check(this.gameState, delta);
         if (result) {
             this.gameState.gameOver = true;
             this.gameState.winner = result.winner;
