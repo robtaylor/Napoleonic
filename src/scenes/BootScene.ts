@@ -6,7 +6,10 @@ export class BootScene extends Phaser.Scene {
     }
 
     preload(): void {
-        // TODO: Load GeoJSON map data, sprites, fonts
+        this.load.json("iberia-land", "assets/maps/iberia-land.json");
+        this.load.json("iberia-borders", "assets/maps/iberia-borders.json");
+        this.load.json("iberia-rivers", "assets/maps/iberia-rivers.json");
+
         const { width, height } = this.scale;
         const barWidth = 320;
         const barHeight = 20;
