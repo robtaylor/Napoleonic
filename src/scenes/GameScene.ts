@@ -18,10 +18,12 @@ import { SelectionManager } from "../ui/SelectionManager";
 import type { GameConfig } from "./MenuScene";
 import type { AIController } from "../game/ai/AIController";
 import { EasyAI } from "../game/ai/EasyAI";
+import { MediumAI } from "../game/ai/MediumAI";
+import { HardAI } from "../game/ai/HardAI";
 import type { FactionId } from "../data/factions";
 
 export class GameScene extends Phaser.Scene {
-    private config: GameConfig = { humanFactions: ["british"], scenarioIndex: 0 };
+    private config: GameConfig = { humanFactions: ["british"], scenarioIndex: 0, aiDifficulty: "easy" };
     private mapProjection!: MapProjection;
     private mapRenderer!: MapRenderer;
     private nodeSprites: Map<string, NodeSprite> = new Map();
@@ -97,7 +99,16 @@ export class GameScene extends Phaser.Scene {
         const allFactions: FactionId[] = ["french", "british", "spanish"];
         for (const fid of allFactions) {
             if (!this.config.humanFactions.includes(fid)) {
-                this.aiControllers.push(new EasyAI(fid));
+                switch (this.config.aiDifficulty) {
+                    case "medium":
+                        this.aiControllers.push(new MediumAI(fid));
+                        break;
+                    case "hard":
+                        this.aiControllers.push(new HardAI(fid));
+                        break;
+                    default:
+                        this.aiControllers.push(new EasyAI(fid));
+                }
             }
         }
 
