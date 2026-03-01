@@ -15,8 +15,10 @@ import { NodeSprite } from "../ui/NodeSprite";
 import { EdgeLine } from "../ui/EdgeLine";
 import { TroopSprite } from "../ui/TroopSprite";
 import { SelectionManager } from "../ui/SelectionManager";
+import type { GameConfig } from "./MenuScene";
 
 export class GameScene extends Phaser.Scene {
+    private config: GameConfig = { humanFactions: ["british"], scenarioIndex: 0 };
     private mapProjection!: MapProjection;
     private mapRenderer!: MapRenderer;
     private nodeSprites: Map<string, NodeSprite> = new Map();
@@ -45,6 +47,12 @@ export class GameScene extends Phaser.Scene {
         super({ key: "GameScene" });
     }
 
+    init(data?: GameConfig): void {
+        if (data && data.humanFactions) {
+            this.config = data;
+        }
+    }
+
     create(): void {
         const { width, height } = this.scale;
 
@@ -70,9 +78,9 @@ export class GameScene extends Phaser.Scene {
         const positions = projectNodes(NODES, this.mapProjection);
         this.posMap = new Map(positions.map((p) => [p.id, p]));
 
-        // Init game state (default: 1808 scenario, british is human)
-        const scenario = SCENARIOS[0]!;
-        this.gameState = new GameState(scenario, ["british"]);
+        // Init game state from menu config
+        const scenario = SCENARIOS[this.config.scenarioIndex] ?? SCENARIOS[0]!;
+        this.gameState = new GameState(scenario, this.config.humanFactions);
 
         // Init systems
         this.troopGenSystem = new TroopGenerationSystem();

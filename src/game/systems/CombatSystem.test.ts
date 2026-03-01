@@ -9,7 +9,7 @@ function makeState(): GameState {
 }
 
 function makeArrival(
-    state: GameState,
+    _state: GameState,
     toNodeId: string,
     owner: "french" | "british" | "spanish",
     troops: number,
