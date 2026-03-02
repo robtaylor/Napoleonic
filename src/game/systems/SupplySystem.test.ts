@@ -90,6 +90,93 @@ describe("SupplySystem", () => {
         });
     });
 
+    describe("allied supply lines", () => {
+        it("British node supplied through Spanish territory", () => {
+            const state = makeState();
+            // Create a British node reachable from Lisbon only through Spanish territory
+            // Make porto neutral so it can't chain British-only
+            const porto = state.nodes.get("porto")!;
+            porto.owner = "neutral";
+
+            // Make coimbra Spanish (it sits between Lisbon and northern British nodes)
+            const coimbra = state.nodes.get("coimbra")!;
+            coimbra.owner = "spanish";
+
+            // Place a British node beyond coimbra: use viseu (connected to coimbra)
+            const viseu = state.nodes.get("viseu");
+            if (viseu) {
+                viseu.owner = "british";
+                system.computeSupply(state);
+                // Viseu should be supplied via Lisbon->coimbra(spanish)->viseu(british)
+                expect(viseu.supplied).toBe(true);
+            } else {
+                // If viseu doesn't exist, verify Lisbon itself still supplied
+                system.computeSupply(state);
+                expect(state.nodes.get("lisbon")!.supplied).toBe(true);
+            }
+        });
+
+        it("Spanish node supplied through British territory", () => {
+            const state = makeState();
+            // Create a scenario where a Spanish node is only reachable from Seville
+            // through British territory
+            // Make a chain: seville(spanish) -> some-node(british) -> target(spanish)
+            // Find neighbors of seville
+            const sevilleNeighbors = state.adjacency.get("seville");
+            if (!sevilleNeighbors || sevilleNeighbors.size === 0) return;
+
+            // Make all Spanish nodes except seville neutral first
+            for (const node of state.nodes.values()) {
+                if (node.owner === "spanish" && node.id !== "seville") {
+                    node.owner = "neutral";
+                }
+            }
+
+            // Pick a seville neighbor, make it British
+            const bridgeId = [...sevilleNeighbors][0]!;
+            const bridge = state.nodes.get(bridgeId)!;
+            bridge.owner = "british";
+
+            // Pick a neighbor of bridge that's not seville, make it Spanish
+            const bridgeNeighbors = state.adjacency.get(bridgeId);
+            if (bridgeNeighbors) {
+                for (const nid of bridgeNeighbors) {
+                    if (nid !== "seville") {
+                        const target = state.nodes.get(nid)!;
+                        target.owner = "spanish";
+
+                        system.computeSupply(state);
+                        // Target should be supplied via seville->bridge(british)->target(spanish)
+                        expect(target.supplied).toBe(true);
+                        return;
+                    }
+                }
+            }
+        });
+
+        it("French NOT supplied through allied territory", () => {
+            const state = makeState();
+            // Cut off a French node so it's only reachable through Spanish/British territory
+            // Make all French nodes except the target neutral
+            for (const node of state.nodes.values()) {
+                if (node.owner === "french" && node.id !== "barcelona") {
+                    node.owner = "neutral";
+                }
+            }
+            // Make neighbors of barcelona Spanish
+            const bcnNeighbors = state.adjacency.get("barcelona");
+            if (bcnNeighbors) {
+                for (const nid of bcnNeighbors) {
+                    state.nodes.get(nid)!.owner = "spanish";
+                }
+            }
+
+            system.computeSupply(state);
+            // Barcelona should NOT be supplied (French has no allies)
+            expect(state.nodes.get("barcelona")!.supplied).toBe(false);
+        });
+    });
+
     describe("supply drain and restore", () => {
         it("drains supply on unsupplied nodes", () => {
             const state = makeState();

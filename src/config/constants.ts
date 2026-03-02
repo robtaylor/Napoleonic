@@ -69,6 +69,13 @@ export const SUPPLY_SOURCES: Record<string, string[]> = {
     spanish: ["seville"],
 };
 
+/** Allied factions that can share supply routes */
+export const SUPPLY_ALLIES: Record<string, string[]> = {
+    french: [],
+    british: ["spanish"],
+    spanish: ["british"],
+};
+
 // === Guerrilla System ===
 
 /** Seconds between guerrilla raid checks */

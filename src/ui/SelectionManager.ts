@@ -11,6 +11,7 @@ export type DispatchMode = "troops" | "engineer" | "scout";
  * Controls:
  * - Single click: select node / dispatch troops
  * - Double click connected node: dispatch scout
+ * - Drag through owned connected nodes: gather & chain dispatch
  * - E key with node selected: dispatch engineer (fortify)
  * - R key with node selected: enter road-build mode (highlights 2-hop targets)
  */
@@ -30,6 +31,12 @@ export class SelectionManager {
     private roadBuildMode = false;
     private roadBuildTargets: Set<string> = new Set();
 
+    /** Gather-drag state */
+    private isPointerDown = false;
+    private pointerDownNodeId: string | null = null;
+    private gatherChain: string[] = [];
+    private isGathering = false;
+
     constructor(
         nodeSprites: Map<string, NodeSprite>,
         edgeLines: EdgeLine[],
@@ -46,9 +53,17 @@ export class SelectionManager {
             this.adjacency.get(to)!.add(from);
         }
 
-        // Set up click handlers on all nodes
+        // Set up input handlers on all nodes
         for (const [nodeId, sprite] of this.nodeSprites) {
-            sprite.on("pointerdown", () => this.onNodeClick(nodeId));
+            sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+                if (pointer.rightButtonDown() || pointer.middleButtonDown()) return;
+                this.onNodePointerDown(nodeId);
+            });
+            sprite.on("pointerover", () => this.onNodePointerOver(nodeId));
+            sprite.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+                if (pointer.rightButtonReleased() || pointer.middleButtonReleased()) return;
+                this.onNodePointerUp(nodeId);
+            });
         }
     }
 
@@ -76,6 +91,12 @@ export class SelectionManager {
     /** Called to get valid road-build targets for a node */
     getRoadTargets: ((nodeId: string) => string[]) | null = null;
 
+    /** Called when a gather-drag chain dispatch is requested */
+    onGatherDispatch: ((chain: string[], destination: string) => void) | null = null;
+
+    /** Called to check which faction owns a node (for gather validation) */
+    getNodeOwner: ((nodeId: string) => string | null) | null = null;
+
     /** Notify the selection manager that a new edge has been added (keep adjacency in sync) */
     addEdge(fromId: string, toId: string): void {
         if (!this.adjacency.has(fromId)) this.adjacency.set(fromId, new Set());
@@ -96,8 +117,121 @@ export class SelectionManager {
             if (this.roadBuildMode) {
                 this.exitRoadBuildMode();
             }
+            if (this.isGathering) {
+                this.cancelGather();
+            }
         }
     }
+
+    /** Called from GameScene when pointer goes up on the scene (not on a node) */
+    onScenePointerUp(): void {
+        if (this.isGathering) {
+            // Released on empty space — cancel gather
+            this.cancelGather();
+        }
+        this.isPointerDown = false;
+        this.pointerDownNodeId = null;
+    }
+
+    // === Gather chain logic ===
+
+    private onNodePointerDown(nodeId: string): void {
+        this.isPointerDown = true;
+        this.pointerDownNodeId = nodeId;
+
+        // Start a potential gather chain if this is an owned node
+        if (this.getNodeOwner) {
+            const owner = this.getNodeOwner(nodeId);
+            if (owner && owner !== "neutral") {
+                this.gatherChain = [nodeId];
+                // Don't set isGathering yet — wait until they drag to another node
+                const sprite = this.nodeSprites.get(nodeId);
+                if (sprite) {
+                    sprite.clearHighlights();
+                    sprite.setHighlightGather(true);
+                }
+            }
+        }
+    }
+
+    private onNodePointerOver(nodeId: string): void {
+        if (!this.isPointerDown || this.gatherChain.length === 0) return;
+        if (this.gatherChain.includes(nodeId)) return; // already in chain
+
+        // Check: the hovered node must be adjacent to ANY node in the chain
+        let adjacentToChain = false;
+        for (const chainNodeId of this.gatherChain) {
+            if (this.getNeighbors(chainNodeId).has(nodeId)) {
+                adjacentToChain = true;
+                break;
+            }
+        }
+        if (!adjacentToChain) return;
+
+        // Check: must be owned by the same faction as the chain start
+        if (!this.getNodeOwner) return;
+        const startOwner = this.getNodeOwner(this.gatherChain[0]!);
+        const hoverOwner = this.getNodeOwner(nodeId);
+        if (!startOwner || hoverOwner !== startOwner) return;
+
+        // Add to chain
+        this.gatherChain.push(nodeId);
+        this.isGathering = true; // now we have 2+ nodes, it's a real gather
+
+        const sprite = this.nodeSprites.get(nodeId);
+        if (sprite) {
+            sprite.clearHighlights();
+            sprite.setHighlightGather(true);
+        }
+    }
+
+    private onNodePointerUp(nodeId: string): void {
+        if (this.isGathering && this.gatherChain.length >= 2) {
+            // Complete gather: chain nodes dispatch toward destination (last in chain)
+            const destination = this.gatherChain[this.gatherChain.length - 1]!;
+            const sources = this.gatherChain.slice(0, -1);
+
+            if (this.onGatherDispatch) {
+                this.onGatherDispatch(sources, destination);
+            }
+
+            this.clearGatherHighlights();
+            this.gatherChain = [];
+            this.isGathering = false;
+            this.isPointerDown = false;
+            this.pointerDownNodeId = null;
+            return;
+        }
+
+        // Not a gather — treat as a normal click
+        this.clearGatherHighlights();
+        this.gatherChain = [];
+        this.isGathering = false;
+        this.isPointerDown = false;
+
+        // Run normal click logic (was the pointerdown on the same node?)
+        if (this.pointerDownNodeId === nodeId) {
+            this.onNodeClick(nodeId);
+        }
+        this.pointerDownNodeId = null;
+    }
+
+    private cancelGather(): void {
+        this.clearGatherHighlights();
+        this.gatherChain = [];
+        this.isGathering = false;
+    }
+
+    private clearGatherHighlights(): void {
+        for (const chainNodeId of this.gatherChain) {
+            const sprite = this.nodeSprites.get(chainNodeId);
+            if (sprite) {
+                sprite.clearHighlights();
+            }
+        }
+    }
+
+    // === Road-build mode ===
 
     private toggleRoadBuildMode(): void {
         if (!this.selectedNodeId) return;
@@ -137,6 +271,8 @@ export class SelectionManager {
             this.highlightNeighbors(this.selectedNodeId, true);
         }
     }
+
+    // === Normal click logic ===
 
     private onNodeClick(nodeId: string): void {
         const now = Date.now();

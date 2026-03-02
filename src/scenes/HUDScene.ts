@@ -93,6 +93,7 @@ export class HUDScene extends Phaser.Scene {
         // Key guide at bottom-right
         const keyLines = [
             "Click: Select / Dispatch troops",
+            "Drag through nodes: Gather & dispatch",
             "Dbl-click neighbor: Send scout",
             "E: Fortify selected node",
             "R: Build road (2-hop shortcut)",
@@ -101,11 +102,11 @@ export class HUDScene extends Phaser.Scene {
         this.add
             .text(width - 12, this.scale.height - 12, keyLines.join("\n"), {
                 fontFamily: "Georgia, serif",
-                fontSize: "10px",
-                color: "#6b5b3e",
+                fontSize: "13px",
+                color: "#a0956a",
                 stroke: "#000000",
-                strokeThickness: 1,
-                lineSpacing: 2,
+                strokeThickness: 2,
+                lineSpacing: 3,
                 align: "right",
             })
             .setOrigin(1, 1)

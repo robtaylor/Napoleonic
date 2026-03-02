@@ -181,6 +181,12 @@ export class GameScene extends Phaser.Scene {
         this.selectionManager.getRoadTargets = (nodeId) => {
             return this.getRoadBuildTargets(nodeId);
         };
+        this.selectionManager.onGatherDispatch = (sources, dest) => {
+            this.handleGatherDispatch(sources, dest);
+        };
+        this.selectionManager.getNodeOwner = (id) => {
+            return this.gameState.nodes.get(id)?.owner ?? null;
+        };
 
         // Keyboard input for fortification and road building
         this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
@@ -194,6 +200,13 @@ export class GameScene extends Phaser.Scene {
         this.input.on("pointerdown", (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
             if (currentlyOver.length === 0) {
                 this.selectionManager.deselect();
+            }
+        });
+
+        // Scene-level pointerup for gather cancel (when released on empty space)
+        this.input.on("pointerup", (pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
+            if (!pointer.rightButtonReleased() && !pointer.middleButtonReleased() && currentlyOver.length === 0) {
+                this.selectionManager.onScenePointerUp();
             }
         });
 
@@ -217,6 +230,21 @@ export class GameScene extends Phaser.Scene {
             this.executeScoutDispatch(fromId, toId);
         } else {
             this.executeDispatch(fromId, toId);
+        }
+    }
+
+    /** Handle gather-drag chain dispatch: each node dispatches to the next toward destination */
+    private handleGatherDispatch(sources: string[], destination: string): void {
+        const fullChain = [...sources, destination];
+
+        // Verify the chain start is owned by a human faction
+        const firstNode = this.gameState.nodes.get(fullChain[0]!);
+        if (!firstNode) return;
+        const faction = this.gameState.factions.get(firstNode.owner);
+        if (!faction || !faction.isHuman) return;
+
+        for (let i = 0; i < fullChain.length - 1; i++) {
+            this.executeDispatch(fullChain[i]!, fullChain[i + 1]!);
         }
     }
 

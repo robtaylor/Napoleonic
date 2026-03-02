@@ -135,6 +135,20 @@ export class NodeSprite extends Phaser.GameObjects.Container {
         }
     }
 
+    /** Highlight as part of a gather chain (cyan ring) */
+    setHighlightGather(highlighted: boolean): void {
+        if (highlighted) {
+            this.circle.lineStyle(2.5, 0x44dddd, 0.9);
+            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+        }
+    }
+
+    /** Clear all highlight rings, redrawing base circle only */
+    clearHighlights(): void {
+        this.circle.clear();
+        this.drawCircle();
+    }
+
     /** Update supply visual indicators */
     updateSupply(nodeState: NodeState): void {
         this.supplyRing.clear();

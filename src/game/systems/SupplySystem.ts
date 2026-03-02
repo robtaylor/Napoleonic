@@ -5,6 +5,7 @@ import {
     SUPPLY_ATTRITION_THRESHOLD,
     SUPPLY_ATTRITION_TROOPS,
     SUPPLY_SOURCES,
+    SUPPLY_ALLIES,
     TROOP_GEN_INTERVAL_MS,
 } from "../../config/constants";
 import type { FactionId } from "../../data/factions";
@@ -67,6 +68,9 @@ export class SupplySystem {
             const visited = new Set<string>();
             const queue: string[] = [];
 
+            // Factions whose territory this faction can traverse for supply
+            const traversable = new Set([factionId, ...(SUPPLY_ALLIES[factionId] ?? [])]);
+
             // Seed BFS with supply sources that this faction owns
             for (const sourceId of sources) {
                 const node = state.nodes.get(sourceId);
@@ -76,11 +80,12 @@ export class SupplySystem {
                 }
             }
 
-            // BFS through friendly territory
+            // BFS through friendly + allied territory
             while (queue.length > 0) {
                 const current = queue.shift()!;
                 const node = state.nodes.get(current);
-                if (node) {
+                if (node && node.owner === factionId) {
+                    // Only mark nodes owned by this faction as supplied
                     node.supplied = true;
                 }
 
@@ -89,7 +94,7 @@ export class SupplySystem {
                 for (const neighborId of neighbors) {
                     if (visited.has(neighborId)) continue;
                     const neighborNode = state.nodes.get(neighborId);
-                    if (neighborNode && neighborNode.owner === factionId) {
+                    if (neighborNode && traversable.has(neighborNode.owner)) {
                         visited.add(neighborId);
                         queue.push(neighborId);
                     }
