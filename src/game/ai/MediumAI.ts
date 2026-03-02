@@ -22,7 +22,7 @@ export class MediumAI extends AIController {
         super(factionId, 2000); // Evaluates every 2 seconds
     }
 
-    protected evaluate(state: GameState, dispatch: DispatchFn): void {
+    protected evaluate(state: GameState, dispatch: DispatchFn, _roadBuild?: (fromId: string, targetId: string) => void): void {
         const owned = this.getOwnedNodes(state);
         if (owned.length === 0) return;
 

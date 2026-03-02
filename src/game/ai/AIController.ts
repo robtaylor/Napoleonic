@@ -4,6 +4,9 @@ import type { GameState } from "../state/GameState";
 /** Callback to create a troop dispatch (wired by GameScene) */
 export type DispatchFn = (fromId: string, toId: string) => void;
 
+/** Callback to start road construction (wired by GameScene) */
+export type RoadBuildFn = (fromId: string, targetId: string) => void;
+
 /**
  * Base class for AI controllers.
  * Subclasses implement `evaluate()` to decide which dispatches to make.
@@ -18,15 +21,24 @@ export abstract class AIController {
         protected evaluationIntervalMs: number,
     ) {}
 
-    update(state: GameState, deltaMs: number, dispatch: DispatchFn): void {
+    update(
+        state: GameState,
+        deltaMs: number,
+        dispatch: DispatchFn,
+        roadBuild?: RoadBuildFn,
+    ): void {
         this.accumulator += deltaMs;
         if (this.accumulator >= this.evaluationIntervalMs) {
             this.accumulator -= this.evaluationIntervalMs;
-            this.evaluate(state, dispatch);
+            this.evaluate(state, dispatch, roadBuild);
         }
     }
 
-    protected abstract evaluate(state: GameState, dispatch: DispatchFn): void;
+    protected abstract evaluate(
+        state: GameState,
+        dispatch: DispatchFn,
+        roadBuild?: RoadBuildFn,
+    ): void;
 
     /** Get all nodes owned by this faction */
     protected getOwnedNodes(state: GameState): string[] {

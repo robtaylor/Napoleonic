@@ -127,6 +127,14 @@ export class NodeSprite extends Phaser.GameObjects.Container {
         }
     }
 
+    /** Highlight as a valid road-build target (orange dashed ring) */
+    setHighlightRoadTarget(highlighted: boolean): void {
+        if (highlighted) {
+            this.circle.lineStyle(2, 0xffaa44, 0.9);
+            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+        }
+    }
+
     /** Update supply visual indicators */
     updateSupply(nodeState: NodeState): void {
         this.supplyRing.clear();

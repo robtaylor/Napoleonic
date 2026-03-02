@@ -244,7 +244,7 @@ export class MenuScene extends Phaser.Scene {
             .setOrigin(0.5);
 
         this.add
-            .text(width / 2, height - 50, "E = Fortify selected node | Double-click = Send scout | Right-drag = Pan | Wheel = Zoom", {
+            .text(width / 2, height - 50, "E = Fortify | R = Build road | Double-click = Scout | Right-drag = Pan | Wheel = Zoom", {
                 fontFamily: "Georgia, serif",
                 fontSize: "12px",
                 color: "#6b5b3e",

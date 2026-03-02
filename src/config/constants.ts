@@ -99,6 +99,17 @@ export const FORTIFY_BUILD_TIME_S = 15;
 /** Damage reduction multiplier when attacking a fortified node (0.7 = 30% less damage) */
 export const FORTIFY_DEFENSE_MULTIPLIER = 0.7;
 
+// === Road Building (Engineers) ===
+
+/** Troop cost to build a new road */
+export const ROAD_BUILD_COST = 10;
+
+/** Time in seconds to complete road construction */
+export const ROAD_BUILD_TIME_S = 20;
+
+/** Maximum hop distance for road building targets (must be exactly this many hops away) */
+export const ROAD_MAX_HOP_DISTANCE = 2;
+
 // === Scouting ===
 
 /** Troop cost to send a scout */

@@ -1,10 +1,11 @@
-import { AIController, type DispatchFn } from "./AIController";
+import { AIController, type DispatchFn, type RoadBuildFn } from "./AIController";
 import {
     DISPATCH_FRACTION,
     MIN_GARRISON,
     TROOP_GEN_RATE,
     FORTIFY_COST,
     FORTIFY_BUILD_TIME_S,
+    ROAD_BUILD_COST,
 } from "../../config/constants";
 import type { FactionId } from "../../data/factions";
 import type { GameState } from "../state/GameState";
@@ -22,12 +23,13 @@ export class HardAI extends AIController {
     private actionsThisTurn = 0;
     private readonly maxActionsPerTurn = 2;
     private fortifyCooldown = 0;
+    private roadBuildCooldown = 0;
 
     constructor(factionId: FactionId) {
         super(factionId, 1500); // Faster evaluation: every 1.5 seconds
     }
 
-    protected evaluate(state: GameState, dispatch: DispatchFn): void {
+    protected evaluate(state: GameState, dispatch: DispatchFn, roadBuild?: RoadBuildFn): void {
         this.actionsThisTurn = 0;
         const owned = this.getOwnedNodes(state);
         if (owned.length === 0) return;
@@ -37,6 +39,13 @@ export class HardAI extends AIController {
         if (this.fortifyCooldown <= 0) {
             this.tryFortify(state, owned);
             this.fortifyCooldown = 10000; // Check every 10 seconds
+        }
+
+        // Road building: Hard AI builds roads to create shortcuts
+        this.roadBuildCooldown -= this.evaluationIntervalMs;
+        if (this.roadBuildCooldown <= 0 && roadBuild) {
+            this.tryBuildRoad(state, owned, roadBuild);
+            this.roadBuildCooldown = 20000; // Check every 20 seconds
         }
 
         // Score all possible attacks
@@ -149,6 +158,51 @@ export class HardAI extends AIController {
         }
 
         return utility;
+    }
+
+    /** Try to build a road to create a shortcut between owned nodes */
+    private tryBuildRoad(state: GameState, owned: string[], roadBuild: RoadBuildFn): void {
+        for (const nodeId of owned) {
+            const node = state.nodes.get(nodeId)!;
+            if (node.troops < ROAD_BUILD_COST + MIN_GARRISON + 5) continue;
+
+            const targets = state.getRoadBuildTargets(nodeId, this.factionId);
+            if (targets.length === 0) continue;
+
+            // Prefer building roads toward frontier nodes or high-value targets
+            let bestTarget: { targetId: string; viaId: string } | null = null;
+            let bestScore = -Infinity;
+
+            for (const target of targets) {
+                const targetNode = state.nodes.get(target.targetId);
+                if (!targetNode) continue;
+
+                let score = 0;
+                // Prefer connecting to own nodes (supply route shortcuts)
+                if (targetNode.owner === this.factionId) {
+                    score += 5;
+                    // Bonus for connecting to unsupplied nodes
+                    if (!targetNode.supplied) score += 10;
+                }
+                // Prefer connecting to enemy frontier (attack routes)
+                if (targetNode.owner !== this.factionId && targetNode.owner !== "neutral") {
+                    score += 3;
+                }
+                // Prefer high-value nodes
+                score += TROOP_GEN_RATE[targetNode.type] * 2;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestTarget = target;
+                }
+            }
+
+            if (bestTarget && bestScore > 3) {
+                node.troops -= ROAD_BUILD_COST;
+                roadBuild(nodeId, bestTarget.targetId);
+                return; // One road per check
+            }
+        }
     }
 
     /** Try to fortify frontier nodes */

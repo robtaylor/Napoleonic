@@ -95,6 +95,7 @@ export class HUDScene extends Phaser.Scene {
             "Click: Select / Dispatch troops",
             "Dbl-click neighbor: Send scout",
             "E: Fortify selected node",
+            "R: Build road (2-hop shortcut)",
             "Right-drag: Pan  |  Wheel: Zoom",
         ];
         this.add

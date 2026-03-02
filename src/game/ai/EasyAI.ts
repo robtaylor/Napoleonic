@@ -14,7 +14,7 @@ export class EasyAI extends AIController {
         super(factionId, 2500); // Evaluates every 2.5 seconds
     }
 
-    protected evaluate(state: GameState, dispatch: DispatchFn): void {
+    protected evaluate(state: GameState, dispatch: DispatchFn, _roadBuild?: (fromId: string, targetId: string) => void): void {
         const owned = this.getOwnedNodes(state);
         if (owned.length === 0) return;
 

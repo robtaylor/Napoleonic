@@ -5,6 +5,8 @@ import {
     FORTIFY_COST,
     FORTIFY_BUILD_TIME_S,
     SCOUT_COST,
+    ROAD_BUILD_COST,
+    ROAD_BUILD_TIME_S,
 } from "../config/constants";
 import { NODES } from "../data/nodes";
 import { EDGES } from "../data/edges";
@@ -58,6 +60,9 @@ export class GameScene extends Phaser.Scene {
     // Screen positions for nodes
     private posMap: Map<string, NodePosition> = new Map();
 
+    // Map from "fromId-toId" to the EdgeLine for roads under construction / newly built
+    private constructionEdgeLines: Map<string, EdgeLine> = new Map();
+
     // Camera drag state
     private isDragging = false;
     private dragStartX = 0;
@@ -82,6 +87,7 @@ export class GameScene extends Phaser.Scene {
         this.nodeSprites.clear();
         this.edgeLines = [];
         this.troopSprites.clear();
+        this.constructionEdgeLines.clear();
 
         // Init projection and map
         this.mapProjection = new MapProjection(width, height);
@@ -169,8 +175,14 @@ export class GameScene extends Phaser.Scene {
         this.selectionManager.onFortify = (nodeId) => {
             this.handleFortify(nodeId);
         };
+        this.selectionManager.onRoadBuild = (fromId, targetId) => {
+            this.handleRoadBuild(fromId, targetId);
+        };
+        this.selectionManager.getRoadTargets = (nodeId) => {
+            return this.getRoadBuildTargets(nodeId);
+        };
 
-        // Keyboard input for fortification
+        // Keyboard input for fortification and road building
         this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
             this.selectionManager.handleKeyPress(event.key);
         });
@@ -225,6 +237,83 @@ export class GameScene extends Phaser.Scene {
         node.fortifyProgress = FORTIFY_BUILD_TIME_S;
 
         this.updateNodeSprite(nodeId);
+    }
+
+    /** Get valid road-build targets for a node (for SelectionManager) */
+    private getRoadBuildTargets(nodeId: string): string[] {
+        const node = this.gameState.nodes.get(nodeId);
+        if (!node) return [];
+        if (node.troops < ROAD_BUILD_COST + MIN_GARRISON) return [];
+
+        const targets = this.gameState.getRoadBuildTargets(nodeId, node.owner);
+        return targets.map((t) => t.targetId);
+    }
+
+    /** Handle road build request from SelectionManager */
+    private handleRoadBuild(fromId: string, targetId: string): void {
+        const fromNode = this.gameState.nodes.get(fromId);
+        if (!fromNode) return;
+
+        const faction = this.gameState.factions.get(fromNode.owner);
+        if (!faction || !faction.isHuman) return;
+
+        if (fromNode.troops < ROAD_BUILD_COST + MIN_GARRISON) return;
+
+        // Verify still a valid target
+        const targets = this.gameState.getRoadBuildTargets(fromId, fromNode.owner);
+        if (!targets.some((t) => t.targetId === targetId)) return;
+
+        // Deduct cost
+        fromNode.troops -= ROAD_BUILD_COST;
+
+        // Start construction
+        this.startRoadConstruction(fromId, targetId, fromNode.owner);
+        this.updateNodeSprite(fromId);
+    }
+
+    /** Start road construction (used by both human and AI) */
+    private startRoadConstruction(fromId: string, toId: string, owner: FactionId): void {
+        this.gameState.roadsUnderConstruction.push({
+            fromNodeId: fromId,
+            toNodeId: toId,
+            owner,
+            remainingTime: ROAD_BUILD_TIME_S,
+        });
+
+        // Create dashed construction line visual
+        const fromPos = this.posMap.get(fromId);
+        const toPos = this.posMap.get(toId);
+        if (fromPos && toPos) {
+            const edgeLine = new EdgeLine(
+                this,
+                fromPos.screenX,
+                fromPos.screenY,
+                toPos.screenX,
+                toPos.screenY,
+                true, // constructing
+            );
+            edgeLine.setDepth(3);
+            const key = `${fromId}-${toId}`;
+            this.constructionEdgeLines.set(key, edgeLine);
+        }
+    }
+
+    /** Complete a road construction: add permanent edge */
+    private completeRoadConstruction(fromId: string, toId: string): void {
+        // Add to game state graph
+        this.gameState.addEdge(fromId, toId);
+
+        // Update selection manager's adjacency
+        this.selectionManager.addEdge(fromId, toId);
+
+        // Replace construction line with permanent line
+        const key = `${fromId}-${toId}`;
+        const constructionLine = this.constructionEdgeLines.get(key);
+        if (constructionLine) {
+            constructionLine.setCompleted();
+            this.edgeLines.push(constructionLine);
+            this.constructionEdgeLines.delete(key);
+        }
     }
 
     /** Core dispatch logic used by both human and AI */
@@ -408,9 +497,16 @@ export class GameScene extends Phaser.Scene {
         for (const ai of this.aiControllers) {
             const faction = this.gameState.factions.get(ai.factionId);
             if (faction && !faction.eliminated) {
-                ai.update(this.gameState, delta, (fromId, toId) => {
-                    this.executeDispatch(fromId, toId);
-                });
+                ai.update(
+                    this.gameState,
+                    delta,
+                    (fromId, toId) => {
+                        this.executeDispatch(fromId, toId);
+                    },
+                    (fromId, targetId) => {
+                        this.startRoadConstruction(fromId, targetId, ai.factionId);
+                    },
+                );
             }
         }
 
@@ -454,6 +550,22 @@ export class GameScene extends Phaser.Scene {
 
         // Update fortification progress
         this.combatSystem.updateFortifications(this.gameState, delta);
+
+        // Update road construction progress
+        const deltaSec = delta / 1000;
+        const completedRoads: { fromId: string; toId: string }[] = [];
+        for (const road of this.gameState.roadsUnderConstruction) {
+            road.remainingTime -= deltaSec;
+            if (road.remainingTime <= 0) {
+                completedRoads.push({ fromId: road.fromNodeId, toId: road.toNodeId });
+            }
+        }
+        for (const { fromId, toId } of completedRoads) {
+            this.completeRoadConstruction(fromId, toId);
+        }
+        this.gameState.roadsUnderConstruction = this.gameState.roadsUnderConstruction.filter(
+            (r) => r.remainingTime > 0,
+        );
 
         // 7. Update all node sprites (supply indicators, "?" for unscouted)
         for (const nodeState of this.gameState.nodes.values()) {

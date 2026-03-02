@@ -7,6 +7,15 @@ import type { NodeState } from "./NodeState";
 import type { FactionState } from "./FactionState";
 import type { TroopDispatch, DispatchType } from "./TroopDispatch";
 
+/** A road currently being built by engineers */
+export interface RoadConstruction {
+    fromNodeId: string;
+    toNodeId: string;
+    owner: FactionId;
+    /** Seconds remaining until construction completes */
+    remainingTime: number;
+}
+
 export type GameMode = "short" | "long";
 
 /**
@@ -38,6 +47,9 @@ export class GameState {
 
     /** Recent guerrilla raid events for UI feedback */
     guerrillaRaids: { nodeId: string; troopsLost: number; timestamp: number }[] = [];
+
+    /** Roads currently under construction */
+    roadsUnderConstruction: RoadConstruction[] = [];
 
     constructor(
         scenario: ScenarioDef,
@@ -160,5 +172,58 @@ export class GameState {
             if (node.owner === factionId) result.push(node);
         }
         return result;
+    }
+
+    /**
+     * Find valid road-build targets from a node: nodes exactly 2 hops away
+     * that are not already directly connected, reachable through a friendly
+     * intermediate node. Returns pairs of [targetId, intermediateId].
+     */
+    getRoadBuildTargets(nodeId: string, factionId: FactionId): { targetId: string; viaId: string }[] {
+        const directNeighbors = this.adjacency.get(nodeId);
+        if (!directNeighbors) return [];
+
+        const results: { targetId: string; viaId: string }[] = [];
+        const seen = new Set<string>();
+
+        for (const midId of directNeighbors) {
+            const midNode = this.nodes.get(midId);
+            // Intermediate node must be friendly
+            if (!midNode || midNode.owner !== factionId) continue;
+
+            const midNeighbors = this.adjacency.get(midId);
+            if (!midNeighbors) continue;
+
+            for (const targetId of midNeighbors) {
+                // Skip self, direct neighbors, and already-seen targets
+                if (targetId === nodeId) continue;
+                if (directNeighbors.has(targetId)) continue;
+                if (seen.has(targetId)) continue;
+
+                // Skip if road already under construction between these nodes
+                const alreadyBuilding = this.roadsUnderConstruction.some(
+                    (r) =>
+                        (r.fromNodeId === nodeId && r.toNodeId === targetId) ||
+                        (r.fromNodeId === targetId && r.toNodeId === nodeId),
+                );
+                if (alreadyBuilding) continue;
+
+                seen.add(targetId);
+                results.push({ targetId, viaId: midId });
+            }
+        }
+
+        return results;
+    }
+
+    /** Add a new dynamic edge to the game graph */
+    addEdge(fromId: string, toId: string): void {
+        const edge: EdgeDef = [fromId, toId];
+        this.edges.push(edge);
+
+        if (!this.adjacency.has(fromId)) this.adjacency.set(fromId, new Set());
+        if (!this.adjacency.has(toId)) this.adjacency.set(toId, new Set());
+        this.adjacency.get(fromId)!.add(toId);
+        this.adjacency.get(toId)!.add(fromId);
     }
 }
