@@ -4,6 +4,7 @@ import {
     MIN_GARRISON,
     FORTIFY_COST,
     FORTIFY_BUILD_TIME_S,
+    GUERRILLA_DEPLOY_COST,
 } from "../../config/constants";
 import type { FactionId } from "../../data/factions";
 import type { GameState } from "../state/GameState";
@@ -31,6 +32,11 @@ export class MediumAI extends AIController {
         if (this.fortifyCooldown <= 0) {
             this.tryFortifyCapital(state, owned);
             this.fortifyCooldown = 15000;
+        }
+
+        // Spanish AI deploys guerrilla battalions
+        if (this.factionId === "spanish") {
+            this.tryDeployGuerrilla(state, owned);
         }
 
         // Build influence map: for each node, compute threat level
@@ -127,6 +133,25 @@ export class MediumAI extends AIController {
                 dispatch(nodeId, towardFront[0]!.id);
                 return;
             }
+        }
+    }
+
+    /** Deploy a guerrilla battalion on a frontier node (Spanish only) */
+    private tryDeployGuerrilla(state: GameState, owned: string[]): void {
+        for (const nodeId of owned) {
+            const node = state.nodes.get(nodeId)!;
+            if (node.guerrillaTroops > 0) continue;
+            if (node.troops < GUERRILLA_DEPLOY_COST + MIN_GARRISON + 3) continue;
+
+            // Must be adjacent to enemy
+            const neighbors = this.getNeighborInfo(state, nodeId);
+            const hasEnemy = neighbors.some((n) => this.isEnemy(n.owner));
+            if (!hasEnemy) continue;
+
+            node.troops -= GUERRILLA_DEPLOY_COST;
+            node.guerrillaTroops = GUERRILLA_DEPLOY_COST;
+            node.guerrillaCooldown = 0;
+            return; // One deployment per evaluation
         }
     }
 

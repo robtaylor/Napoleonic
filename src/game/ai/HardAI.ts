@@ -6,6 +6,7 @@ import {
     FORTIFY_COST,
     FORTIFY_BUILD_TIME_S,
     ROAD_BUILD_COST,
+    GUERRILLA_DEPLOY_COST,
 } from "../../config/constants";
 import type { FactionId } from "../../data/factions";
 import type { GameState } from "../state/GameState";
@@ -39,6 +40,11 @@ export class HardAI extends AIController {
         if (this.fortifyCooldown <= 0) {
             this.tryFortify(state, owned);
             this.fortifyCooldown = 10000; // Check every 10 seconds
+        }
+
+        // Spanish AI deploys guerrilla battalions (scored)
+        if (this.factionId === "spanish") {
+            this.tryDeployGuerrilla(state, owned);
         }
 
         // Road building: Hard AI builds roads to create shortcuts
@@ -86,6 +92,7 @@ export class HardAI extends AIController {
                         sendCount,
                         targetNode,
                         node,
+                        state,
                     );
                     if (utility > 0) {
                         candidates.push({
@@ -118,6 +125,7 @@ export class HardAI extends AIController {
         sendCount: number,
         target: NodeState,
         source: NodeState,
+        _state?: GameState,
     ): number {
         // Account for fortification
         let effectiveSend = sendCount;
@@ -141,7 +149,26 @@ export class HardAI extends AIController {
         // Supply bonus: prefer attacking nodes that improve supply chain
         const supplyBonus = source.supplied ? 0 : -3;
 
-        return captureValue + surplusBonus + sourceSafetyPenalty + supplyBonus;
+        // Guerrilla zone penalty: avoid targets adjacent to scouted enemy guerrillas
+        let guerrillaPenalty = 0;
+        if (_state) {
+            const targetNeighbors = _state.adjacency.get(target.id);
+            if (targetNeighbors) {
+                for (const nid of targetNeighbors) {
+                    const neighbor = _state.nodes.get(nid);
+                    if (neighbor && neighbor.guerrillaTroops > 0 && this.isEnemy(neighbor.owner)) {
+                        // Only react if scouted
+                        const scoutExpiry = neighbor.scoutedBy?.[this.factionId];
+                        if (scoutExpiry !== undefined && scoutExpiry > _state.elapsedTime) {
+                            guerrillaPenalty = -5;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return captureValue + surplusBonus + sourceSafetyPenalty + supplyBonus + guerrillaPenalty;
     }
 
     /** Utility of reinforcing a friendly node */
@@ -158,6 +185,36 @@ export class HardAI extends AIController {
         }
 
         return utility;
+    }
+
+    /** Deploy guerrilla battalion on best scored frontier node (Spanish only) */
+    private tryDeployGuerrilla(state: GameState, owned: string[]): void {
+        let bestNode: string | null = null;
+        let bestScore = -1;
+
+        for (const nodeId of owned) {
+            const node = state.nodes.get(nodeId)!;
+            if (node.guerrillaTroops > 0) continue;
+            if (node.troops < GUERRILLA_DEPLOY_COST + MIN_GARRISON + 3) continue;
+
+            const neighbors = this.getNeighborInfo(state, nodeId);
+            const enemyCount = neighbors.filter((n) => this.isEnemy(n.owner)).length;
+            if (enemyCount === 0) continue;
+
+            // Score: prefer nodes with more enemy neighbors
+            const score = enemyCount * 3 + (node.troops > 15 ? 2 : 0);
+            if (score > bestScore) {
+                bestScore = score;
+                bestNode = nodeId;
+            }
+        }
+
+        if (bestNode) {
+            const node = state.nodes.get(bestNode)!;
+            node.troops -= GUERRILLA_DEPLOY_COST;
+            node.guerrillaTroops = GUERRILLA_DEPLOY_COST;
+            node.guerrillaCooldown = 0;
+        }
     }
 
     /** Try to build a road to create a shortcut between owned nodes */
