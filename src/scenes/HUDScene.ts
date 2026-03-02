@@ -89,6 +89,27 @@ export class HUDScene extends Phaser.Scene {
             })
             .setScrollFactor(0)
             .setDepth(100);
+
+        // Key guide at bottom-right
+        const keyLines = [
+            "Click: Select / Dispatch troops",
+            "Dbl-click neighbor: Send scout",
+            "E: Fortify selected node",
+            "Right-drag: Pan  |  Wheel: Zoom",
+        ];
+        this.add
+            .text(width - 12, this.scale.height - 12, keyLines.join("\n"), {
+                fontFamily: "Georgia, serif",
+                fontSize: "10px",
+                color: "#6b5b3e",
+                stroke: "#000000",
+                strokeThickness: 1,
+                lineSpacing: 2,
+                align: "right",
+            })
+            .setOrigin(1, 1)
+            .setScrollFactor(0)
+            .setDepth(100);
     }
 
     update(): void {
