@@ -1,118 +1,177 @@
 import {
-    GUERRILLA_INTERVAL_S,
-    GUERRILLA_BASE_CHANCE,
-    GUERRILLA_TROOP_DAMAGE_MIN,
-    GUERRILLA_TROOP_DAMAGE_MAX,
+    GUERRILLA_TICK_INTERVAL_S,
     GUERRILLA_SUPPLY_DRAIN,
-    GUERRILLA_LOW_THRESHOLD,
-    GUERRILLA_HIGH_THRESHOLD,
+    GUERRILLA_AMBUSH_COOLDOWN_S,
+    GUERRILLA_AMBUSH_DAMAGE_MIN,
+    GUERRILLA_AMBUSH_DAMAGE_MAX,
+    SUPPLY_ALLIES,
 } from "../../config/constants";
+import type { FactionId } from "../../data/factions";
 import type { GameState } from "../state/GameState";
 
-export interface GuerrillaRaidEvent {
+export interface GuerrillaAmbushEvent {
     nodeId: string;
-    troopsLost: number;
+    dispatchId: number;
+    troopsKilled: number;
+}
+
+export interface GuerrillaDrainEvent {
+    nodeId: string;
     supplyDrained: number;
 }
 
+export interface GuerrillaEvents {
+    ambushes: GuerrillaAmbushEvent[];
+    drains: GuerrillaDrainEvent[];
+}
+
+/** Check if faction `a` considers faction `b` an enemy */
+function isEnemyFaction(a: FactionId, b: FactionId): boolean {
+    if (a === b || a === "neutral" || b === "neutral") return false;
+    const allies = SUPPLY_ALLIES[a] ?? [];
+    return !allies.includes(b);
+}
+
 /**
- * Spanish guerrillas automatically raid French-held nodes adjacent to Spanish territory.
- * Not player-controlled — fires periodically based on Spanish territorial strength.
+ * Guerrilla Battalion System.
  *
- * - Every GUERRILLA_INTERVAL_S seconds, each French node adjacent to a Spanish node
- *   has a base chance of guerrilla raid
- * - Raid: kills 1-3 troops + drains supply
- * - Intensity scales with Spanish node count
- * - Only targets French (historically accurate)
+ * Player (or AI) deploys battalions on owned Spanish nodes adjacent to
+ * enemy territory. Battalions:
+ * - Ambush enemy dispatches traveling along edges adjacent to the battalion node
+ * - Drain supply from adjacent enemy nodes each tick
+ * - Lose 1 troop per ambush (attrition); dissolve at 0
+ * - Have a cooldown between ambushes
  */
 export class GuerrillaSystem {
-    private accumulator = 0;
+    private drainAccumulator = 0;
 
     /**
-     * Update guerrilla timer; returns raid events that occurred this frame.
-     * Accepts an optional RNG for testability (defaults to Math.random).
+     * Update guerrilla battalions. Returns events for UI feedback.
+     * @param rng Injectable RNG for testability (defaults to Math.random)
      */
     update(
         state: GameState,
         deltaMs: number,
         rng: () => number = Math.random,
-    ): GuerrillaRaidEvent[] {
-        this.accumulator += deltaMs;
-        const intervalMs = GUERRILLA_INTERVAL_S * 1000;
-        const events: GuerrillaRaidEvent[] = [];
+    ): GuerrillaEvents {
+        const deltaSec = deltaMs / 1000;
+        const events: GuerrillaEvents = { ambushes: [], drains: [] };
 
-        while (this.accumulator >= intervalMs) {
-            this.accumulator -= intervalMs;
-            events.push(...this.tick(state, rng));
-        }
-
-        return events;
-    }
-
-    private tick(state: GameState, rng: () => number): GuerrillaRaidEvent[] {
-        const events: GuerrillaRaidEvent[] = [];
-
-        // Count Spanish nodes for intensity scaling
-        const spanishFaction = state.factions.get("spanish");
-        if (!spanishFaction || spanishFaction.eliminated) return events;
-        const spanishNodeCount = spanishFaction.nodeCount;
-        if (spanishNodeCount === 0) return events;
-
-        // Intensity multiplier based on Spanish territorial strength
-        let intensityMultiplier = 1.0;
-        if (spanishNodeCount < GUERRILLA_LOW_THRESHOLD) {
-            intensityMultiplier = 0.5;
-        } else if (spanishNodeCount >= GUERRILLA_HIGH_THRESHOLD) {
-            intensityMultiplier = 1.5;
-        }
-
-        const raidChance = GUERRILLA_BASE_CHANCE * intensityMultiplier;
-
-        // Find all French nodes adjacent to Spanish territory
+        // 1. Decrement cooldowns on all battalions
         for (const node of state.nodes.values()) {
-            if (node.owner !== "french") continue;
-
-            const neighbors = state.adjacency.get(node.id);
-            if (!neighbors) continue;
-
-            let adjacentToSpanish = false;
-            for (const neighborId of neighbors) {
-                const neighbor = state.nodes.get(neighborId);
-                if (neighbor && neighbor.owner === "spanish") {
-                    adjacentToSpanish = true;
-                    break;
-                }
+            if (node.guerrillaTroops > 0 && node.guerrillaCooldown > 0) {
+                node.guerrillaCooldown = Math.max(0, node.guerrillaCooldown - deltaSec);
             }
+        }
 
-            if (!adjacentToSpanish) continue;
+        // 2. Ambush enemy dispatches
+        // Build coverage map: guerrilla node -> set of adjacent node IDs (ambush zone)
+        const ambushZones = new Map<string, { owner: FactionId; neighbors: Set<string> }>();
+        for (const node of state.nodes.values()) {
+            if (node.guerrillaTroops <= 0 || node.guerrillaCooldown > 0) continue;
+            const adj = state.adjacency.get(node.id);
+            if (!adj) continue;
+            ambushZones.set(node.id, { owner: node.owner, neighbors: adj });
+        }
 
-            // Roll for raid
-            if (rng() < raidChance) {
-                const troopDamage = GUERRILLA_TROOP_DAMAGE_MIN +
-                    Math.floor(rng() * (GUERRILLA_TROOP_DAMAGE_MAX - GUERRILLA_TROOP_DAMAGE_MIN + 1));
+        // Track dispatches already ambushed this frame (one ambush per dispatch)
+        const ambushedDispatches = new Set<number>();
+        // Track dispatches to remove (destroyed)
+        const destroyedDispatchIds: number[] = [];
 
-                node.troops = Math.max(0, node.troops - troopDamage);
-                node.supply = Math.max(0, node.supply - GUERRILLA_SUPPLY_DRAIN);
+        for (const [guerrillaNodeId, zone] of ambushZones) {
+            const guerrillaNode = state.nodes.get(guerrillaNodeId);
+            if (!guerrillaNode || guerrillaNode.guerrillaTroops <= 0) continue;
 
-                const event: GuerrillaRaidEvent = {
-                    nodeId: node.id,
-                    troopsLost: troopDamage,
-                    supplyDrained: GUERRILLA_SUPPLY_DRAIN,
-                };
-                events.push(event);
+            for (const dispatch of state.dispatches) {
+                if (ambushedDispatches.has(dispatch.id)) continue;
+                if (dispatch.dispatchType === "scout") continue; // Scouts avoid ambush
 
-                // Record for UI feedback
-                state.guerrillaRaids.push({
-                    nodeId: node.id,
-                    troopsLost: troopDamage,
-                    timestamp: state.elapsedTime,
+                // Dispatch must be an enemy of the guerrilla's owner
+                if (!isEnemyFaction(guerrillaNode.owner, dispatch.owner)) continue;
+
+                // Dispatch is in the ambush zone if fromNodeId or toNodeId is adjacent
+                const fromInZone = zone.neighbors.has(dispatch.fromNodeId);
+                const toInZone = zone.neighbors.has(dispatch.toNodeId);
+                if (!fromInZone && !toInZone) continue;
+
+                // Ambush! Roll damage
+                const maxDamage = GUERRILLA_AMBUSH_DAMAGE_MIN +
+                    Math.floor(rng() * (GUERRILLA_AMBUSH_DAMAGE_MAX - GUERRILLA_AMBUSH_DAMAGE_MIN + 1));
+                const damage = Math.min(guerrillaNode.guerrillaTroops, maxDamage, dispatch.troops);
+
+                dispatch.troops -= damage;
+                guerrillaNode.guerrillaTroops -= 1; // Attrition: lose 1 per ambush
+                guerrillaNode.guerrillaCooldown = GUERRILLA_AMBUSH_COOLDOWN_S;
+                ambushedDispatches.add(dispatch.id);
+
+                events.ambushes.push({
+                    nodeId: guerrillaNodeId,
+                    dispatchId: dispatch.id,
+                    troopsKilled: damage,
                 });
 
-                // Node reverts to neutral at 0 troops
-                if (node.troops === 0) {
-                    node.owner = "neutral";
-                    node.fortified = false;
-                    node.fortifyProgress = 0;
+                // Record for HUD
+                state.guerrillaRaids.push({
+                    nodeId: guerrillaNodeId,
+                    troopsLost: damage,
+                    timestamp: state.elapsedTime,
+                    type: "ambush",
+                });
+
+                // Dispatch destroyed?
+                if (dispatch.troops <= 0) {
+                    destroyedDispatchIds.push(dispatch.id);
+                }
+
+                // Battalion dissolved?
+                if (guerrillaNode.guerrillaTroops <= 0) {
+                    guerrillaNode.guerrillaTroops = 0;
+                    guerrillaNode.guerrillaCooldown = 0;
+                    break; // This battalion is gone
+                }
+            }
+        }
+
+        // Remove destroyed dispatches
+        for (const id of destroyedDispatchIds) {
+            state.removeDispatch(id);
+        }
+
+        // 3. Supply drain (tick-gated)
+        this.drainAccumulator += deltaMs;
+        const drainIntervalMs = GUERRILLA_TICK_INTERVAL_S * 1000;
+
+        while (this.drainAccumulator >= drainIntervalMs) {
+            this.drainAccumulator -= drainIntervalMs;
+
+            for (const node of state.nodes.values()) {
+                if (node.guerrillaTroops <= 0) continue;
+
+                const adj = state.adjacency.get(node.id);
+                if (!adj) continue;
+
+                for (const neighborId of adj) {
+                    const neighbor = state.nodes.get(neighborId);
+                    if (!neighbor) continue;
+                    if (!isEnemyFaction(node.owner, neighbor.owner)) continue;
+
+                    const drained = Math.min(neighbor.supply, GUERRILLA_SUPPLY_DRAIN);
+                    neighbor.supply -= drained;
+
+                    if (drained > 0) {
+                        events.drains.push({
+                            nodeId: neighborId,
+                            supplyDrained: drained,
+                        });
+
+                        state.guerrillaRaids.push({
+                            nodeId: neighborId,
+                            troopsLost: 0,
+                            timestamp: state.elapsedTime,
+                            type: "drain",
+                        });
+                    }
                 }
             }
         }
