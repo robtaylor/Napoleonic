@@ -46,7 +46,7 @@ export class MediumAI extends AIController {
             let weakestEnemy: { id: string; troops: number } | null = null;
 
             for (const n of neighbors) {
-                if (n.owner !== this.factionId) {
+                if (this.isEnemy(n.owner)) {
                     enemyPower += n.troops;
                     if (!weakestEnemy || n.troops < weakestEnemy.troops) {
                         weakestEnemy = { id: n.id, troops: n.troops };
@@ -105,7 +105,7 @@ export class MediumAI extends AIController {
         // Priority 3: Expand - send troops toward enemy territory
         const frontline = owned.filter((id) => {
             const neighbors = this.getNeighborInfo(state, id);
-            return neighbors.some((n) => n.owner !== this.factionId);
+            return neighbors.some((n) => this.isEnemy(n.owner));
         });
 
         const interior = owned.filter((id) => !frontline.includes(id));

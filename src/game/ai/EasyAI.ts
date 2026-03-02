@@ -30,7 +30,7 @@ export class EasyAI extends AIController {
 
             // Priority 1: Attack weakest enemy neighbor we can beat
             const enemies = neighbors
-                .filter((n) => n.owner !== this.factionId)
+                .filter((n) => this.isEnemy(n.owner))
                 .sort((a, b) => a.troops - b.troops);
 
             for (const enemy of enemies) {
@@ -44,7 +44,7 @@ export class EasyAI extends AIController {
             const friendlies = neighbors.filter((n) => n.owner === this.factionId);
             for (const friendly of friendlies) {
                 const theirNeighbors = this.getNeighborInfo(state, friendly.id);
-                const hasThreat = theirNeighbors.some((n) => n.owner !== this.factionId);
+                const hasThreat = theirNeighbors.some((n) => this.isEnemy(n.owner));
                 if (hasThreat && friendly.troops < node.troops) {
                     dispatch(nodeId, friendly.id);
                     return;

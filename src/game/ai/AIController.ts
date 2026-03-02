@@ -1,5 +1,6 @@
 import type { FactionId } from "../../data/factions";
 import type { GameState } from "../state/GameState";
+import { SUPPLY_ALLIES } from "../../config/constants";
 
 /** Callback to create a troop dispatch (wired by GameScene) */
 export type DispatchFn = (fromId: string, toId: string) => void;
@@ -39,6 +40,14 @@ export abstract class AIController {
         dispatch: DispatchFn,
         roadBuild?: RoadBuildFn,
     ): void;
+
+    /** Check if a faction owner is an enemy (not self, not ally, not neutral counts as enemy) */
+    protected isEnemy(owner: FactionId): boolean {
+        if (owner === this.factionId) return false;
+        if (owner === "neutral") return true;
+        const allies = SUPPLY_ALLIES[this.factionId] ?? [];
+        return !allies.includes(owner);
+    }
 
     /** Get all nodes owned by this faction */
     protected getOwnedNodes(state: GameState): string[] {

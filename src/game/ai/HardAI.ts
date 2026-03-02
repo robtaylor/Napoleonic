@@ -68,7 +68,7 @@ export class HardAI extends AIController {
                     // Reinforce: only if neighbor is on frontline and weak
                     const neighborNeighbors = this.getNeighborInfo(state, neighbor.id);
                     const hasEnemyNeighbor = neighborNeighbors.some(
-                        (n) => n.owner !== this.factionId,
+                        (n) => this.isEnemy(n.owner),
                     );
                     if (hasEnemyNeighbor && neighbor.troops < sendCount) {
                         candidates.push({
@@ -78,7 +78,7 @@ export class HardAI extends AIController {
                             sendCount,
                         });
                     }
-                } else {
+                } else if (this.isEnemy(neighbor.owner)) {
                     // Attack
                     const targetNode = state.nodes.get(neighbor.id);
                     if (!targetNode) continue;
@@ -185,7 +185,7 @@ export class HardAI extends AIController {
                     if (!targetNode.supplied) score += 10;
                 }
                 // Prefer connecting to enemy frontier (attack routes)
-                if (targetNode.owner !== this.factionId && targetNode.owner !== "neutral") {
+                if (this.isEnemy(targetNode.owner)) {
                     score += 3;
                 }
                 // Prefer high-value nodes
@@ -214,7 +214,7 @@ export class HardAI extends AIController {
 
             // Only fortify frontier nodes (adjacent to enemy)
             const neighbors = this.getNeighborInfo(state, nodeId);
-            const isFrontier = neighbors.some((n) => n.owner !== this.factionId);
+            const isFrontier = neighbors.some((n) => this.isEnemy(n.owner));
             const isCapital = node.type === "capital";
 
             if (isFrontier || isCapital) {

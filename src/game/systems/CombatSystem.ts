@@ -3,6 +3,7 @@ import {
     FORTIFY_BUILD_TIME_S,
     SCOUT_DURATION_S,
     SCOUT_ATTACK_BONUS,
+    SUPPLY_ALLIES,
 } from "../../config/constants";
 import type { GameState } from "../state/GameState";
 import type { TroopDispatch } from "../state/TroopDispatch";
@@ -33,8 +34,9 @@ export class CombatSystem {
                 continue;
             }
 
-            if (targetNode.owner === dispatch.owner) {
-                // Reinforcement
+            const allies = SUPPLY_ALLIES[dispatch.owner] ?? [];
+            if (targetNode.owner === dispatch.owner || allies.includes(targetNode.owner)) {
+                // Reinforcement (own node or allied node)
                 targetNode.troops += dispatch.troops;
 
                 // === Engineer arrival: begin fortification ===
