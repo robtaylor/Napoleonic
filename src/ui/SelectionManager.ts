@@ -91,6 +91,9 @@ export class SelectionManager {
     /** Called to get valid road-build targets for a node */
     getRoadTargets: ((nodeId: string) => string[]) | null = null;
 
+    /** Called when guerrilla deployment is requested on a selected node */
+    onDeployGuerrilla: ((nodeId: string) => void) | null = null;
+
     /** Called when a gather-drag chain dispatch is requested */
     onGatherDispatch: ((chain: string[], destination: string) => void) | null = null;
 
@@ -110,6 +113,10 @@ export class SelectionManager {
         if (key === "e" || key === "E") {
             if (this.selectedNodeId && this.onFortify) {
                 this.onFortify(this.selectedNodeId);
+            }
+        } else if (key === "g" || key === "G") {
+            if (this.selectedNodeId && this.onDeployGuerrilla) {
+                this.onDeployGuerrilla(this.selectedNodeId);
             }
         } else if (key === "r" || key === "R") {
             this.toggleRoadBuildMode();

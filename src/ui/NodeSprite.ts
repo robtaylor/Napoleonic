@@ -23,6 +23,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
     private _factionId: FactionId;
     private supplyRing: Phaser.GameObjects.Graphics;
     private fortIcon: Phaser.GameObjects.Text;
+    private guerrillaIcon: Phaser.GameObjects.Text;
     private raidFlashTimer = 0;
 
     constructor(
@@ -57,6 +58,19 @@ export class NodeSprite extends Phaser.GameObjects.Container {
             .setOrigin(0.5)
             .setVisible(false);
         this.add(this.fortIcon);
+
+        // Guerrilla battalion icon (top-left, opposite fort icon)
+        this.guerrillaIcon = scene.add
+            .text(-(NODE_RADIUS - 2), -(NODE_RADIUS - 2), "G", {
+                fontFamily: "Georgia, serif",
+                fontSize: "10px",
+                color: "#ddaa22",
+                stroke: "#000000",
+                strokeThickness: 2,
+            })
+            .setOrigin(0.5)
+            .setVisible(false);
+        this.add(this.guerrillaIcon);
 
         // Troop count text
         this.troopText = scene.add
@@ -193,6 +207,11 @@ export class NodeSprite extends Phaser.GameObjects.Container {
         } else {
             this.fortIcon.setVisible(false);
         }
+    }
+
+    /** Update guerrilla battalion icon visibility */
+    updateGuerrilla(nodeState: NodeState): void {
+        this.guerrillaIcon.setVisible(nodeState.guerrillaTroops > 0);
     }
 
     /** Flash the node briefly (guerrilla raid feedback) */

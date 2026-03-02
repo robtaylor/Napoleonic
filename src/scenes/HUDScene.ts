@@ -96,6 +96,7 @@ export class HUDScene extends Phaser.Scene {
             "Drag through nodes: Gather & dispatch",
             "Dbl-click neighbor: Send scout",
             "E: Fortify selected node",
+            "G: Deploy guerrilla (Spanish)",
             "R: Build road (2-hop shortcut)",
             "Right-drag: Pan  |  Wheel: Zoom",
         ];
@@ -162,8 +163,17 @@ export class HUDScene extends Phaser.Scene {
             (r) => this.gameState.elapsedTime - r.timestamp < 3,
         );
         if (recentRaids.length > 0) {
-            const totalLost = recentRaids.reduce((sum, r) => sum + r.troopsLost, 0);
-            this.guerrillaText.setText(`Guerrilla activity! ${totalLost} French troops ambushed`);
+            const ambushes = recentRaids.filter(r => r.type === "ambush");
+            const drains = recentRaids.filter(r => r.type === "drain");
+            const parts: string[] = [];
+            if (ambushes.length > 0) {
+                const totalKilled = ambushes.reduce((sum, r) => sum + r.troopsLost, 0);
+                parts.push(`${totalKilled} troops ambushed`);
+            }
+            if (drains.length > 0) {
+                parts.push(`${drains.length} nodes drained`);
+            }
+            this.guerrillaText.setText(`Guerrilla: ${parts.join(", ")}`);
             this.guerrillaText.setAlpha(1);
         } else {
             this.guerrillaText.setAlpha(0);

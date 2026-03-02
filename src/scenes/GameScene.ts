@@ -7,6 +7,8 @@ import {
     SCOUT_COST,
     ROAD_BUILD_COST,
     ROAD_BUILD_TIME_S,
+    GUERRILLA_DEPLOY_COST,
+    SUPPLY_ALLIES,
 } from "../config/constants";
 import { NODES } from "../data/nodes";
 import { EDGES } from "../data/edges";
@@ -181,6 +183,9 @@ export class GameScene extends Phaser.Scene {
         this.selectionManager.getRoadTargets = (nodeId) => {
             return this.getRoadBuildTargets(nodeId);
         };
+        this.selectionManager.onDeployGuerrilla = (nodeId) => {
+            this.handleDeployGuerrilla(nodeId);
+        };
         this.selectionManager.onGatherDispatch = (sources, dest) => {
             this.handleGatherDispatch(sources, dest);
         };
@@ -297,6 +302,46 @@ export class GameScene extends Phaser.Scene {
         // Start construction
         this.startRoadConstruction(fromId, targetId, fromNode.owner);
         this.updateNodeSprite(fromId);
+    }
+
+    /** Handle guerrilla deployment from SelectionManager (G key) */
+    private handleDeployGuerrilla(nodeId: string): void {
+        const node = this.gameState.nodes.get(nodeId);
+        if (!node) return;
+
+        // Must be Spanish-owned
+        if (node.owner !== "spanish") return;
+
+        // Must be human-controlled
+        const faction = this.gameState.factions.get(node.owner);
+        if (!faction || !faction.isHuman) return;
+
+        // Must have enough troops
+        if (node.troops < GUERRILLA_DEPLOY_COST + MIN_GARRISON) return;
+
+        // No existing battalion
+        if (node.guerrillaTroops > 0) return;
+
+        // Must be adjacent to enemy territory
+        const neighbors = this.gameState.adjacency.get(nodeId);
+        if (!neighbors) return;
+        const allies = SUPPLY_ALLIES["spanish"] ?? [];
+        let adjacentToEnemy = false;
+        for (const nid of neighbors) {
+            const neighbor = this.gameState.nodes.get(nid);
+            if (neighbor && neighbor.owner !== "spanish" && neighbor.owner !== "neutral" && !allies.includes(neighbor.owner)) {
+                adjacentToEnemy = true;
+                break;
+            }
+        }
+        if (!adjacentToEnemy) return;
+
+        // Deploy
+        node.troops -= GUERRILLA_DEPLOY_COST;
+        node.guerrillaTroops = GUERRILLA_DEPLOY_COST;
+        node.guerrillaCooldown = 0;
+
+        this.updateNodeSprite(nodeId);
     }
 
     /** Start road construction (used by both human and AI) */
@@ -472,6 +517,7 @@ export class GameScene extends Phaser.Scene {
         sprite.setTroopDisplay(nodeState.troops, scouted);
         sprite.updateSupply(nodeState);
         sprite.updateFortification(nodeState);
+        sprite.updateGuerrilla(nodeState);
     }
 
     private setupCamera(): void {
@@ -544,21 +590,42 @@ export class GameScene extends Phaser.Scene {
         // 3. Supply system (BFS + drain/restore)
         this.supplySystem.update(this.gameState, delta);
 
-        // 4. Guerrilla system (raids on French)
+        // 4. Guerrilla system (battalion ambushes + supply drain)
         const guerrillaEvents = this.guerrillaSystem.update(this.gameState, delta);
-        for (const event of guerrillaEvents) {
-            const sprite = this.nodeSprites.get(event.nodeId);
-            if (sprite) sprite.triggerRaidFlash();
+        for (const ambush of guerrillaEvents.ambushes) {
+            // Flash the guerrilla node
+            const nodeSprite = this.nodeSprites.get(ambush.nodeId);
+            if (nodeSprite) nodeSprite.triggerRaidFlash();
+
+            // Flash and update the troop sprite
+            const troopSprite = this.troopSprites.get(ambush.dispatchId);
+            if (troopSprite) {
+                troopSprite.triggerAmbushFlash();
+                // Find dispatch to get current troop count
+                const dispatch = this.gameState.dispatches.find(d => d.id === ambush.dispatchId);
+                if (dispatch) {
+                    troopSprite.updateTroopCount(dispatch.troops);
+                } else {
+                    // Dispatch was destroyed — remove sprite
+                    troopSprite.destroy();
+                    this.troopSprites.delete(ambush.dispatchId);
+                }
+            }
+        }
+        for (const drain of guerrillaEvents.drains) {
+            const nodeSprite = this.nodeSprites.get(drain.nodeId);
+            if (nodeSprite) nodeSprite.triggerRaidFlash();
         }
 
         // 5. Troop movement (speed multipliers for scouts)
         const arrived = this.troopMoveSystem.update(this.gameState, delta);
 
-        // Update troop sprite positions
+        // Update troop sprite positions and ambush flash
         for (const dispatch of this.gameState.dispatches) {
             const sprite = this.troopSprites.get(dispatch.id);
             if (sprite) {
                 sprite.updateProgress(dispatch.progress);
+                sprite.updateAmbushFlash(delta);
             }
         }
 
