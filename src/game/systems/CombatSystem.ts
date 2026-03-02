@@ -29,6 +29,19 @@ export class CombatSystem {
             if (dispatch.dispatchType === "scout") {
                 if (!targetNode.scoutedBy) targetNode.scoutedBy = {};
                 targetNode.scoutedBy[dispatch.owner] = state.elapsedTime + SCOUT_DURATION_S;
+
+                // Scout also reveals guerrilla battalions on adjacent nodes
+                const adjNodes = state.adjacency.get(dispatch.toNodeId);
+                if (adjNodes) {
+                    for (const adjId of adjNodes) {
+                        const adjNode = state.nodes.get(adjId);
+                        if (adjNode && adjNode.guerrillaTroops > 0) {
+                            if (!adjNode.scoutedBy) adjNode.scoutedBy = {};
+                            adjNode.scoutedBy[dispatch.owner] = state.elapsedTime + SCOUT_DURATION_S;
+                        }
+                    }
+                }
+
                 // Scout troops are consumed (they don't fight or add to garrison)
                 state.removeDispatch(dispatch.id);
                 continue;
@@ -64,14 +77,18 @@ export class CombatSystem {
                     // Node captured - surplus becomes new garrison
                     targetNode.troops = Math.abs(targetNode.troops);
                     targetNode.owner = dispatch.owner;
-                    // Capturing removes fortification
+                    // Capturing removes fortification and guerrilla battalion
                     targetNode.fortified = false;
                     targetNode.fortifyProgress = 0;
+                    targetNode.guerrillaTroops = 0;
+                    targetNode.guerrillaCooldown = 0;
                 } else if (targetNode.troops === 0) {
                     // Exact tie - attacker captures with 0 garrison
                     targetNode.owner = dispatch.owner;
                     targetNode.fortified = false;
                     targetNode.fortifyProgress = 0;
+                    targetNode.guerrillaTroops = 0;
+                    targetNode.guerrillaCooldown = 0;
                 }
             }
 

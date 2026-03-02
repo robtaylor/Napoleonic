@@ -76,24 +76,25 @@ export const SUPPLY_ALLIES: Record<string, string[]> = {
     spanish: ["british"],
 };
 
-// === Guerrilla System ===
+// === Guerrilla Battalion System ===
 
-/** Seconds between guerrilla raid checks */
-export const GUERRILLA_INTERVAL_S = 8;
+/** Troop cost to deploy a guerrilla battalion */
+export const GUERRILLA_DEPLOY_COST = 5;
 
-/** Base probability of a guerrilla raid per eligible French node */
-export const GUERRILLA_BASE_CHANCE = 0.3;
+/** Seconds between guerrilla supply drain ticks */
+export const GUERRILLA_TICK_INTERVAL_S = 8;
 
-/** Min/max troops killed per guerrilla raid */
-export const GUERRILLA_TROOP_DAMAGE_MIN = 1;
-export const GUERRILLA_TROOP_DAMAGE_MAX = 3;
-
-/** Supply drained per guerrilla raid */
+/** Supply drained from each adjacent enemy node per tick */
 export const GUERRILLA_SUPPLY_DRAIN = 15;
 
-/** Spanish node thresholds for guerrilla intensity scaling */
-export const GUERRILLA_LOW_THRESHOLD = 4;
-export const GUERRILLA_HIGH_THRESHOLD = 9;
+/** Seconds between ambushes for a single battalion */
+export const GUERRILLA_AMBUSH_COOLDOWN_S = 10;
+
+/** Min troops killed per ambush */
+export const GUERRILLA_AMBUSH_DAMAGE_MIN = 1;
+
+/** Max troops killed per ambush */
+export const GUERRILLA_AMBUSH_DAMAGE_MAX = 3;
 
 // === Fortification (Engineer Platoons) ===
 

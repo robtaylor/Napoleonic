@@ -21,4 +21,10 @@ export interface NodeState {
 
     // Scouting: faction -> timestamp when scouted status expires (elapsedTime)
     scoutedBy: Partial<Record<FactionId, number>>;
+
+    // Guerrilla battalion
+    /** Guerrilla battalion troop count (0 = no battalion) */
+    guerrillaTroops: number;
+    /** Seconds remaining until next ambush allowed */
+    guerrillaCooldown: number;
 }

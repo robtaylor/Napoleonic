@@ -46,7 +46,7 @@ export class GameState {
     frenchDominanceTimer = 0;
 
     /** Recent guerrilla raid events for UI feedback */
-    guerrillaRaids: { nodeId: string; troopsLost: number; timestamp: number }[] = [];
+    guerrillaRaids: { nodeId: string; troopsLost: number; timestamp: number; type: "ambush" | "drain" }[] = [];
 
     /** Roads currently under construction */
     roadsUnderConstruction: RoadConstruction[] = [];
@@ -80,6 +80,8 @@ export class GameState {
                 fortified: false,
                 fortifyProgress: 0,
                 scoutedBy: {},
+                guerrillaTroops: 0,
+                guerrillaCooldown: 0,
             });
         }
 
