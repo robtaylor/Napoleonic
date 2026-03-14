@@ -210,7 +210,13 @@ export class SelectionManager {
         const sprite = this.nodeSprites.get(nodeId);
         if (sprite) {
             sprite.clearHighlights();
-            sprite.setHighlightGather(true);
+            if (hoverOwner === startOwner) {
+                sprite.setHighlightGather(true);
+            } else if (this.isFactionFriendly && this.isFactionFriendly(hoverOwner)) {
+                sprite.setHighlightAlliedTransit(true);
+            } else {
+                sprite.setHighlightAttackTarget(true);
+            }
         }
     }
 

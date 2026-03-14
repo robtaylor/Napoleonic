@@ -197,6 +197,22 @@ export class NodeSprite extends Phaser.GameObjects.Container {
         }
     }
 
+    /** Highlight as allied transit node in gather chain (amber ring) */
+    setHighlightAlliedTransit(highlighted: boolean): void {
+        if (highlighted) {
+            this.circle.lineStyle(2.5, 0xc9a84c, 0.9);
+            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+        }
+    }
+
+    /** Highlight as enemy attack target at end of gather chain (red ring) */
+    setHighlightAttackTarget(highlighted: boolean): void {
+        if (highlighted) {
+            this.circle.lineStyle(2.5, 0xff4444, 0.9);
+            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+        }
+    }
+
     /** Clear all highlight rings, redrawing base circle only */
     clearHighlights(): void {
         this.circle.clear();
