@@ -100,6 +100,9 @@ export class SelectionManager {
     /** Called to check which faction owns a node (for gather validation) */
     getNodeOwner: ((nodeId: string) => string | null) | null = null;
 
+    /** Called to check if a faction is friendly (allied) to the human player */
+    isFactionFriendly: ((factionId: string) => boolean) | null = null;
+
     /** Notify the selection manager that a new edge has been added (keep adjacency in sync) */
     addEdge(fromId: string, toId: string): void {
         if (!this.adjacency.has(fromId)) this.adjacency.set(fromId, new Set());
@@ -175,11 +178,15 @@ export class SelectionManager {
         }
         if (!adjacentToChain) return;
 
-        // Check: must be owned by the same faction as the chain start
+        // Check: must be owned by the same faction or a friendly (allied) faction
         if (!this.getNodeOwner) return;
         const startOwner = this.getNodeOwner(this.gatherChain[0]!);
         const hoverOwner = this.getNodeOwner(nodeId);
-        if (!startOwner || hoverOwner !== startOwner) return;
+        if (!startOwner || !hoverOwner) return;
+        if (hoverOwner !== startOwner) {
+            // Allow allied factions through
+            if (!this.isFactionFriendly || !this.isFactionFriendly(hoverOwner)) return;
+        }
 
         // Add to chain
         this.gatherChain.push(nodeId);

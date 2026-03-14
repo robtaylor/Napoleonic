@@ -76,6 +76,11 @@ export const SUPPLY_ALLIES: Record<string, string[]> = {
     spanish: ["british"],
 };
 
+// === Allied Transit ===
+
+/** Supply drained from origin node per allied hop during gather-chain dispatch */
+export const ALLIED_TRANSIT_SUPPLY_COST = 15;
+
 // === Guerrilla Battalion System ===
 
 /** Troop cost to deploy a guerrilla battalion */

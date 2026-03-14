@@ -13,6 +13,7 @@ import {
     CAMERA_SHAKE_INTENSITY,
     SUPPLY_ROUTE_UPDATE_MS,
     THREAT_PROGRESS_THRESHOLD,
+    ALLIED_TRANSIT_SUPPLY_COST,
 } from "../config/constants";
 import { NODES } from "../data/nodes";
 import { EDGES } from "../data/edges";
@@ -199,6 +200,9 @@ export class GameScene extends Phaser.Scene {
         this.selectionManager.getNodeOwner = (id) => {
             return this.gameState.nodes.get(id)?.owner ?? null;
         };
+        this.selectionManager.isFactionFriendly = (fid) => {
+            return this.isFriendlyFaction(fid as FactionId);
+        };
 
         // Keyboard input for fortification and road building
         this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
@@ -255,8 +259,26 @@ export class GameScene extends Phaser.Scene {
         const faction = this.gameState.factions.get(firstNode.owner);
         if (!faction || !faction.isHuman) return;
 
+        const playerFaction = firstNode.owner;
+
+        // Count allied (non-own-faction) hops and deduct supply cost from origin
+        let alliedHops = 0;
+        for (const nodeId of fullChain) {
+            const node = this.gameState.nodes.get(nodeId);
+            if (node && node.owner !== playerFaction) {
+                alliedHops++;
+            }
+        }
+        if (alliedHops > 0) {
+            firstNode.supply = Math.max(0, firstNode.supply - alliedHops * ALLIED_TRANSIT_SUPPLY_COST);
+        }
+
+        // Dispatch only from own-faction nodes; skip allied transit nodes
         for (let i = 0; i < fullChain.length - 1; i++) {
-            this.executeDispatch(fullChain[i]!, fullChain[i + 1]!);
+            const sourceNode = this.gameState.nodes.get(fullChain[i]!);
+            if (sourceNode && sourceNode.owner === playerFaction) {
+                this.executeDispatch(fullChain[i]!, fullChain[i + 1]!);
+            }
         }
     }
 
