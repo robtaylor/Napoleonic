@@ -10,9 +10,6 @@ import {
     EDGE_CONSTRUCTION_ALPHA,
     EDGE_CONSTRUCTION_WIDTH,
     FOG_EDGE_ALPHA,
-    SUPPLY_ROUTE_COLOR,
-    SUPPLY_ROUTE_ALPHA,
-    SUPPLY_ROUTE_WIDTH,
 } from "../config/constants";
 
 /**
@@ -23,7 +20,6 @@ export class EdgeLine {
     private graphics: Phaser.GameObjects.Graphics;
     private _isConstructing = false;
     private _isFogged = false;
-    private _isSupplyRoute = false;
     private waypoints: [number, number][];
 
     constructor(
@@ -60,23 +56,15 @@ export class EdgeLine {
         this.draw();
     }
 
-    /** Set supply route glow state */
-    setSupplyRoute(isRoute: boolean): void {
-        if (this._isSupplyRoute === isRoute) return;
-        this._isSupplyRoute = isRoute;
-        this.draw();
+    /** Set supply route glow state (currently no-op: all edges share same style) */
+    setSupplyRoute(_isRoute: boolean): void {
+        // All edges now render with the same style for uniform visibility
     }
 
     draw(): void {
         this.graphics.clear();
         if (this._isConstructing) {
             this.drawDashed(EDGE_CONSTRUCTION_COLOR, EDGE_CONSTRUCTION_ALPHA, EDGE_CONSTRUCTION_WIDTH);
-        } else if (this._isSupplyRoute) {
-            // Dark outline for contrast against terrain
-            this.graphics.lineStyle(SUPPLY_ROUTE_WIDTH + 2, 0x1a1209, 0.3);
-            this.strokePath();
-            this.graphics.lineStyle(SUPPLY_ROUTE_WIDTH, SUPPLY_ROUTE_COLOR, SUPPLY_ROUTE_ALPHA);
-            this.strokePath();
         } else {
             const alpha = this._isFogged ? FOG_EDGE_ALPHA : EDGE_ALPHA;
             // Dark outline for contrast against terrain
