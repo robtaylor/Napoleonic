@@ -631,7 +631,7 @@ export class GameScene extends Phaser.Scene {
 
         this.input.on("wheel", (_pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
             // Scale zoom proportionally to delta (handles both mouse wheel and trackpad pinch)
-            const zoomDelta = -deltaY * 0.001;
+            const zoomDelta = -deltaY * 0.003;
             cam.setZoom(Phaser.Math.Clamp(cam.zoom + zoomDelta, 0.5, 2.5));
         });
 
