@@ -413,3 +413,205 @@ export function drawFactionJack(
     gfx.lineStyle(0.8, UI_COLORS.ink, 0.5);
     gfx.strokeRect(x, y, w, h);
 }
+
+/**
+ * Draw a keyboard key-cap box — light rounded rect with ink border
+ * and subtle bottom shadow, like a physical key.
+ */
+export function drawKeyBox(
+    gfx: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    w = 14,
+    h = 14,
+): void {
+    const r = 2;
+    // Bottom shadow (pressed-key effect)
+    gfx.fillStyle(UI_COLORS.ink, 0.15);
+    gfx.fillRoundedRect(x, y + 1, w, h, r);
+    // Key face
+    gfx.fillStyle(UI_COLORS.parchmentLight, 0.9);
+    gfx.fillRoundedRect(x, y, w, h, r);
+    // Border
+    gfx.lineStyle(0.8, UI_COLORS.ink, 0.5);
+    gfx.strokeRoundedRect(x, y, w, h, r);
+}
+
+/**
+ * Draw a miniature node shape in neutral gray for the map legend.
+ */
+export function drawMiniNode(
+    gfx: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    type: "capital" | "fortress" | "port" | "city",
+    radius = 5,
+): void {
+    const gray = 0x666666;
+    gfx.fillStyle(gray, 0.9);
+    gfx.lineStyle(1, UI_COLORS.ink, 0.6);
+
+    switch (type) {
+        case "capital": {
+            gfx.fillCircle(cx, cy, radius);
+            gfx.strokeCircle(cx, cy, radius);
+            // Tiny gold star
+            gfx.fillStyle(0xffd700, 0.8);
+            const sr = 3;
+            const ir = 1.2;
+            gfx.beginPath();
+            for (let i = 0; i < 10; i++) {
+                const angle = (i * Math.PI) / 5 - Math.PI / 2;
+                const r = i % 2 === 0 ? sr : ir;
+                const px = cx + Math.cos(angle) * r;
+                const py = cy + Math.sin(angle) * r;
+                if (i === 0) gfx.moveTo(px, py);
+                else gfx.lineTo(px, py);
+            }
+            gfx.closePath();
+            gfx.fillPath();
+            break;
+        }
+        case "fortress": {
+            const s = radius;
+            gfx.fillRect(cx - s, cy - s, s * 2, s * 2);
+            gfx.strokeRect(cx - s, cy - s, s * 2, s * 2);
+            // Crenellation notches
+            const nw = 2.5;
+            const nh = 2.5;
+            gfx.fillStyle(gray, 0.9);
+            for (let i = 0; i < 3; i++) {
+                const nx = cx - s + 1 + i * (s * 2 - 2) / 3 + (s * 2 - 2) / 6 - nw / 2;
+                gfx.fillRect(nx, cy - s - nh, nw, nh);
+                gfx.lineStyle(0.8, UI_COLORS.ink, 0.6);
+                gfx.strokeRect(nx, cy - s - nh, nw, nh);
+            }
+            break;
+        }
+        case "port": {
+            gfx.fillCircle(cx, cy, radius);
+            gfx.strokeCircle(cx, cy, radius);
+            // Tiny anchor hint
+            gfx.lineStyle(1, 0xffffff, 0.5);
+            gfx.beginPath();
+            gfx.moveTo(cx, cy - 2);
+            gfx.lineTo(cx, cy + 3);
+            gfx.strokePath();
+            gfx.beginPath();
+            gfx.moveTo(cx - 2, cy);
+            gfx.lineTo(cx + 2, cy);
+            gfx.strokePath();
+            break;
+        }
+        default: {
+            gfx.fillCircle(cx, cy, radius);
+            gfx.strokeCircle(cx, cy, radius);
+            break;
+        }
+    }
+}
+
+/**
+ * Draw a miniature dispatch unit shape in neutral gray.
+ */
+export function drawMiniDispatch(
+    gfx: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    type: "troops" | "scout" | "engineer",
+    size = 4,
+): void {
+    gfx.fillStyle(0x666666, 0.9);
+    gfx.lineStyle(0.8, UI_COLORS.ink, 0.6);
+
+    switch (type) {
+        case "scout": {
+            gfx.beginPath();
+            gfx.moveTo(cx, cy - size);
+            gfx.lineTo(cx + size, cy);
+            gfx.lineTo(cx, cy + size);
+            gfx.lineTo(cx - size, cy);
+            gfx.closePath();
+            gfx.fillPath();
+            gfx.strokePath();
+            break;
+        }
+        case "engineer": {
+            gfx.fillRect(cx - size, cy - size, size * 2, size * 2);
+            gfx.strokeRect(cx - size, cy - size, size * 2, size * 2);
+            break;
+        }
+        default: {
+            gfx.fillCircle(cx, cy, size);
+            gfx.strokeCircle(cx, cy, size);
+            break;
+        }
+    }
+}
+
+/**
+ * Draw a short line segment sample for edge styles.
+ */
+export function drawMiniEdge(
+    gfx: Phaser.GameObjects.Graphics,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    style: "solid" | "dashed",
+): void {
+    if (style === "dashed") {
+        gfx.lineStyle(2, 0xffaa44, 0.8);
+        const dashLen = 4;
+        const gapLen = 3;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const nx = dx / len;
+        const ny = dy / len;
+        let pos = 0;
+        while (pos < len) {
+            const end = Math.min(pos + dashLen, len);
+            gfx.beginPath();
+            gfx.moveTo(x1 + nx * pos, y1 + ny * pos);
+            gfx.lineTo(x1 + nx * end, y1 + ny * end);
+            gfx.strokePath();
+            pos = end + gapLen;
+        }
+    } else {
+        gfx.lineStyle(2, 0x4a3c28, 0.75);
+        gfx.beginPath();
+        gfx.moveTo(x1, y1);
+        gfx.lineTo(x2, y2);
+        gfx.strokePath();
+    }
+}
+
+/**
+ * Draw a small supply arc sample — green to yellow to red gradient.
+ */
+export function drawMiniSupplyArc(
+    gfx: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    radius = 6,
+): void {
+    const segments = 12;
+    const startAngle = -Math.PI / 2;
+    const totalAngle = Math.PI * 1.5;
+
+    for (let i = 0; i < segments; i++) {
+        const t = i / segments;
+        // Green → Yellow → Red
+        const r = t < 0.5 ? Math.floor(255 * t * 2) : 255;
+        const g = t > 0.5 ? Math.floor(255 * (1 - t) * 2) : 255;
+        const color = (r << 16) | (g << 8) | 0;
+
+        gfx.lineStyle(2, color, 0.8);
+        const a1 = startAngle + totalAngle * (i / segments);
+        const a2 = startAngle + totalAngle * ((i + 1) / segments);
+        gfx.beginPath();
+        gfx.arc(cx, cy, radius, a1, a2, false);
+        gfx.strokePath();
+    }
+}

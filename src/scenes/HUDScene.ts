@@ -5,6 +5,11 @@ import type { GameState } from "../game/state/GameState";
 import {
     drawHUDPanel,
     drawFactionJack,
+    drawKeyBox,
+    drawMiniNode,
+    drawMiniDispatch,
+    drawMiniEdge,
+    drawMiniSupplyArc,
     INK,
     INK_LIGHT,
     INK_FAINT,
@@ -178,9 +183,267 @@ export class HUDScene extends Phaser.Scene {
         // Controls panel
         drawHUDPanel(panels, clX, clY, clW, clH);
 
-        // --- Guerrilla text (bottom-left, no panel — transient) ---
+        // =========================================================
+        // 3. Bottom-left panels: Map Legend + Actions
+        // =========================================================
+        const blX = 4;
+        const blW = 190;
+        const blPad = 8;
+        const legendH = 140;
+        const actionsH = 104;
+        const blGap = 4;
+
+        const legendY = this.scale.height - legendH - blGap - actionsH - 4;
+        const actionsY = legendY + legendH + blGap;
+
+        // --- Map Legend panel ---
+        drawHUDPanel(panels, blX, legendY, blW, legendH, 0.88, 777);
+
+        // Legend header
+        this.add
+            .text(blX + blPad, legendY + blPad - 2, "MAP KEY", {
+                fontFamily: FONT_HEADING,
+                fontSize: "9px",
+                color: INK_FAINT,
+                letterSpacing: 3,
+            })
+            .setScrollFactor(0)
+            .setDepth(100);
+
+        const legendGfx = this.add.graphics();
+        legendGfx.setScrollFactor(0);
+        legendGfx.setDepth(100);
+
+        // Row 1: Node types (2 columns)
+        const row1Y = legendY + blPad + 14;
+        const col1X = blX + blPad;
+        const col2X = blX + blPad + 95;
+        const rowH = 16;
+
+        // Capital + Fortress
+        drawMiniNode(legendGfx, col1X + 5, row1Y + 5, "capital", 5);
+        this.add
+            .text(col1X + 14, row1Y, "Capital", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        drawMiniNode(legendGfx, col2X + 5, row1Y + 5, "fortress", 5);
+        this.add
+            .text(col2X + 14, row1Y, "Fortress", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // Port + City
+        const row2Y = row1Y + rowH;
+        drawMiniNode(legendGfx, col1X + 5, row2Y + 5, "port", 5);
+        this.add
+            .text(col1X + 14, row2Y, "Port", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        drawMiniNode(legendGfx, col2X + 5, row2Y + 5, "city", 5);
+        this.add
+            .text(col2X + 14, row2Y, "City", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // Divider
+        const div1Y = row2Y + rowH + 2;
+        legendGfx.lineStyle(0.5, 0x8b7d5e, 0.3);
+        legendGfx.beginPath();
+        legendGfx.moveTo(col1X, div1Y);
+        legendGfx.lineTo(blX + blW - blPad, div1Y);
+        legendGfx.strokePath();
+
+        // Row 3: Dispatch types (3 across)
+        const row3Y = div1Y + 5;
+        const dCol1 = col1X;
+        const dCol2 = col1X + 58;
+        const dCol3 = col1X + 116;
+
+        drawMiniDispatch(legendGfx, dCol1 + 4, row3Y + 5, "troops", 4);
+        this.add
+            .text(dCol1 + 12, row3Y, "Troop", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        drawMiniDispatch(legendGfx, dCol2 + 4, row3Y + 5, "scout", 4);
+        this.add
+            .text(dCol2 + 12, row3Y, "Scout", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        drawMiniDispatch(legendGfx, dCol3 + 4, row3Y + 5, "engineer", 3);
+        this.add
+            .text(dCol3 + 11, row3Y, "Engr", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // Divider
+        const div2Y = row3Y + rowH + 2;
+        legendGfx.lineStyle(0.5, 0x8b7d5e, 0.3);
+        legendGfx.beginPath();
+        legendGfx.moveTo(col1X, div2Y);
+        legendGfx.lineTo(blX + blW - blPad, div2Y);
+        legendGfx.strokePath();
+
+        // Row 4: Edge styles + overlays
+        const row4Y = div2Y + 5;
+        drawMiniEdge(legendGfx, col1X, row4Y + 5, col1X + 22, row4Y + 5, "solid");
+        this.add
+            .text(col1X + 26, row4Y, "Road", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        drawMiniEdge(legendGfx, col2X, row4Y + 5, col2X + 22, row4Y + 5, "dashed");
+        this.add
+            .text(col2X + 26, row4Y, "Building", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // Divider
+        const div3Y = row4Y + rowH + 2;
+        legendGfx.lineStyle(0.5, 0x8b7d5e, 0.3);
+        legendGfx.beginPath();
+        legendGfx.moveTo(col1X, div3Y);
+        legendGfx.lineTo(blX + blW - blPad, div3Y);
+        legendGfx.strokePath();
+
+        // Row 5: Overlays + supply arc
+        const row5Y = div3Y + 5;
+        // Overlay letters
+        this.add
+            .text(col1X, row5Y, "W", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: "#ffffff",
+                stroke: "#000000", strokeThickness: 2,
+            })
+            .setScrollFactor(0).setDepth(100);
+        this.add
+            .text(col1X + 12, row5Y, "Fort", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        this.add
+            .text(col1X + 44, row5Y, "G", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: "#ddaa22",
+                stroke: "#000000", strokeThickness: 2,
+            })
+            .setScrollFactor(0).setDepth(100);
+        this.add
+            .text(col1X + 56, row5Y, "Guerr", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // Supply arc
+        drawMiniSupplyArc(legendGfx, col2X + 6, row5Y + 5, 5);
+        this.add
+            .text(col2X + 16, row5Y, "Supply", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // --- Actions panel ---
+        drawHUDPanel(panels, blX, actionsY, blW, actionsH, 0.88, 888);
+
+        this.add
+            .text(blX + blPad, actionsY + blPad - 2, "ACTIONS", {
+                fontFamily: FONT_HEADING,
+                fontSize: "9px",
+                color: INK_FAINT,
+                letterSpacing: 3,
+            })
+            .setScrollFactor(0)
+            .setDepth(100);
+
+        const actGfx = this.add.graphics();
+        actGfx.setScrollFactor(0);
+        actGfx.setDepth(100);
+
+        const actRow1Y = actionsY + blPad + 14;
+        const actCol1 = blX + blPad;
+        const actCol2 = blX + blPad + 95;
+
+        // [E] Fortify
+        drawKeyBox(actGfx, actCol1, actRow1Y, 14, 14);
+        this.add
+            .text(actCol1 + 7, actRow1Y + 7, "E", {
+                fontFamily: FONT_BODY, fontSize: "8px", color: INK,
+            })
+            .setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        this.add
+            .text(actCol1 + 18, actRow1Y + 1, "Fortify", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // [G] Guerrilla
+        drawKeyBox(actGfx, actCol2, actRow1Y, 14, 14);
+        this.add
+            .text(actCol2 + 7, actRow1Y + 7, "G", {
+                fontFamily: FONT_BODY, fontSize: "8px", color: INK,
+            })
+            .setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        this.add
+            .text(actCol2 + 18, actRow1Y + 1, "Guerrilla", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // [R] Build Road
+        const actRow2Y = actRow1Y + 20;
+        drawKeyBox(actGfx, actCol1, actRow2Y, 14, 14);
+        this.add
+            .text(actCol1 + 7, actRow2Y + 7, "R", {
+                fontFamily: FONT_BODY, fontSize: "8px", color: INK,
+            })
+            .setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        this.add
+            .text(actCol1 + 18, actRow2Y + 1, "Build Road", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // Dbl-click: Scout
+        const actRow3Y = actRow2Y + 20;
+        this.add
+            .text(actCol1, actRow3Y + 1, "Dbl-click:", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_FAINT,
+            })
+            .setScrollFactor(0).setDepth(100);
+        drawMiniDispatch(actGfx, actCol1 + 60, actRow3Y + 6, "scout", 3);
+        this.add
+            .text(actCol1 + 68, actRow3Y + 1, "Scout", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // Drag: Gather
+        const actRow4Y = actRow3Y + 16;
+        this.add
+            .text(actCol1, actRow4Y + 1, "Drag:", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_FAINT,
+            })
+            .setScrollFactor(0).setDepth(100);
+        this.add
+            .text(actCol1 + 34, actRow4Y + 1, "Gather & dispatch", {
+                fontFamily: FONT_BODY, fontSize: "9px", color: INK_LIGHT,
+            })
+            .setScrollFactor(0).setDepth(100);
+
+        // --- Guerrilla text (above legend panel — transient) ---
         this.guerrillaText = this.add
-            .text(12, this.scale.height - 24, "", {
+            .text(12, legendY - 20, "", {
                 fontFamily: FONT_BODY,
                 fontSize: "12px",
                 color: INK,
