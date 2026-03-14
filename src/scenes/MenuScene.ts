@@ -3,6 +3,7 @@ import type { FactionId } from "../data/factions";
 import { SCENARIOS } from "../data/scenarios";
 import type { GameMode } from "../game/state/GameState";
 import {
+    drawRoughParchmentPage,
     drawHorizontalRule,
     drawDoubleRuleBox,
     drawCornerOrnaments,
@@ -41,8 +42,11 @@ export class MenuScene extends Phaser.Scene {
         const cx = width / 2;
         const gfx = this.add.graphics();
 
-        // ===== Outer page border — like a printed document =====
-        drawCornerOrnaments(gfx, 30, 12, width - 60, height - 24, 18);
+        // ===== Rough-edged parchment page =====
+        drawRoughParchmentPage(gfx, width, height, 16, 5, 50);
+
+        // ===== Outer page border =====
+        drawCornerOrnaments(gfx, 30, 20, width - 60, height - 40, 16);
 
         // ===== Title =====
         this.add

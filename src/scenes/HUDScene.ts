@@ -3,7 +3,7 @@ import { GAME_DURATION_S } from "../config/constants";
 import { FACTIONS, type FactionId } from "../data/factions";
 import type { GameState } from "../game/state/GameState";
 import {
-    UI_COLORS,
+    drawHUDPanel,
     drawFactionJack,
     INK,
     INK_LIGHT,
@@ -18,9 +18,14 @@ const FACTION_OBJECTIVES: Record<Exclude<FactionId, "neutral">, string> = {
     spanish: "After 3 min: match or exceed French cities",
 };
 
+/** Padding inside HUD panels */
+const PAD = 8;
+
 /**
  * HUD overlay scene — parchment-styled panels with ink text
  * and faction color jacks for identification.
+ *
+ * Panel sizes are computed from text content so nothing overflows.
  */
 export class HUDScene extends Phaser.Scene {
     private gameState!: GameState;
@@ -42,98 +47,138 @@ export class HUDScene extends Phaser.Scene {
     create(): void {
         const { width } = this.scale;
 
-        // === Backing panels (single Graphics, drawn once) ===
-        const panels = this.add.graphics();
-        panels.setScrollFactor(0);
-        panels.setDepth(99);
+        // =========================================================
+        // 1. Create text objects FIRST so we can measure them
+        // =========================================================
 
-        // Scoreboard panel — top-left
-        const sbW = 280;
-        const sbH = 82;
-        panels.fillStyle(UI_COLORS.parchmentDark, 0.88);
-        panels.fillRoundedRect(4, 4, sbW, sbH, 4);
-        panels.lineStyle(1, UI_COLORS.ink, 0.3);
-        panels.strokeRoundedRect(4, 4, sbW, sbH, 4);
-        panels.lineStyle(0.5, UI_COLORS.ink, 0.15);
-        panels.strokeRoundedRect(7, 7, sbW - 6, sbH - 6, 3);
+        // --- Scoreboard texts (top-left) ---
+        const jackW = 10;
+        const jackGap = 6;
+        const textX = PAD + jackW + jackGap;
+        const factionIds: FactionId[] = ["french", "british", "spanish"];
+        let sbMaxW = 0;
+        let y = PAD;
+        for (const fid of factionIds) {
+            const text = this.add
+                .text(textX, y, "", {
+                    fontFamily: FONT_BODY,
+                    fontSize: "12px",
+                    color: INK,
+                })
+                .setScrollFactor(0)
+                .setDepth(100);
 
-        // Timer / objective panel — top-right
-        const trW = 200;
-        const trH = 50;
+            // Measure with worst-case content
+            text.setText("British-Portuguese: 25 cities, 999 troops");
+            sbMaxW = Math.max(sbMaxW, text.width);
+            text.setText("");
+
+            this.factionTexts.set(fid, text);
+            y += 20;
+        }
+
+        const sbW = textX + sbMaxW + PAD;
+        const sbH = y + PAD - 4; // 3 rows + padding
+
+        // --- Timer + objective (top-right) ---
+        this.timerText = this.add
+            .text(0, 0, "", {
+                fontFamily: FONT_HEADING,
+                fontSize: "15px",
+                color: INK,
+            })
+            .setScrollFactor(0)
+            .setDepth(100);
+
+        this.objectiveText = this.add
+            .text(0, 0, "", {
+                fontFamily: FONT_BODY,
+                fontSize: "10px",
+                color: INK_LIGHT,
+            })
+            .setScrollFactor(0)
+            .setDepth(100);
+
+        // Measure worst-case objective
+        this.objectiveText.setText("Objective: After 3 min: match or exceed French cities");
+        const objW = this.objectiveText.width;
+        this.objectiveText.setText("");
+
+        this.timerText.setText("05:00");
+        const timerW = this.timerText.width;
+        this.timerText.setText("");
+
+        const trContentW = Math.max(objW, timerW);
+        const trW = trContentW + PAD * 2;
+        const trH = 44;
         const trX = width - trW - 4;
-        panels.fillStyle(UI_COLORS.parchmentDark, 0.88);
-        panels.fillRoundedRect(trX, 4, trW, trH, 4);
-        panels.lineStyle(1, UI_COLORS.ink, 0.3);
-        panels.strokeRoundedRect(trX, 4, trW, trH, 4);
-        panels.lineStyle(0.5, UI_COLORS.ink, 0.15);
-        panels.strokeRoundedRect(trX + 3, 7, trW - 6, trH - 6, 3);
 
-        // Controls legend panel — bottom-right
-        const clW = 290;
-        const clH = 150;
-        const clX = width - clW - 4;
-        const clY = this.scale.height - clH - 4;
-        panels.fillStyle(UI_COLORS.parchmentDark, 0.88);
-        panels.fillRoundedRect(clX, clY, clW, clH, 4);
-        panels.lineStyle(1, UI_COLORS.ink, 0.3);
-        panels.strokeRoundedRect(clX, clY, clW, clH, 4);
-        panels.lineStyle(0.5, UI_COLORS.ink, 0.15);
-        panels.strokeRoundedRect(clX + 3, clY + 3, clW - 6, clH - 6, 3);
+        // Position timer + objective inside panel
+        this.timerText.setPosition(trX + PAD, 4 + PAD);
+        this.objectiveText.setPosition(trX + PAD, 4 + PAD + 20);
 
-        // "CONTROLS" header
-        this.add
-            .text(width - clW / 2 - 4, clY + 6, "CONTROLS", {
+        // --- Controls legend (bottom-right) ---
+        const keyLines = [
+            "Click: Select / Dispatch",
+            "Drag: Gather & dispatch",
+            "Dbl-click: Send scout",
+            "E: Fortify  G: Guerrilla",
+            "R: Build road (shortcut)",
+            "Right-drag: Pan",
+            "Wheel: Zoom",
+        ];
+        const ctrlHeader = this.add
+            .text(0, 0, "CONTROLS", {
                 fontFamily: FONT_HEADING,
                 fontSize: "9px",
                 color: INK_FAINT,
                 letterSpacing: 3,
             })
-            .setOrigin(0.5, 0)
             .setScrollFactor(0)
             .setDepth(100);
 
-        // Faction scoreboard with jacks
-        const factionIds: FactionId[] = ["french", "british", "spanish"];
-        let y = 14;
-        for (const fid of factionIds) {
-            // Draw faction jack
-            drawFactionJack(panels, 12, y + 2, fid, 10, 10);
+        const ctrlText = this.add
+            .text(0, 0, keyLines.join("\n"), {
+                fontFamily: FONT_BODY,
+                fontSize: "11px",
+                color: INK_LIGHT,
+                lineSpacing: 2,
+            })
+            .setScrollFactor(0)
+            .setDepth(100);
 
-            const text = this.add
-                .text(28, y, "", {
-                    fontFamily: FONT_BODY,
-                    fontSize: "13px",
-                    color: INK,
-                })
-                .setScrollFactor(0)
-                .setDepth(100);
-            this.factionTexts.set(fid, text);
-            y += 22;
+        const clW = Math.max(ctrlHeader.width, ctrlText.width) + PAD * 2;
+        const clH = ctrlHeader.height + ctrlText.height + PAD * 2 + 6;
+        const clX = width - clW - 4;
+        const clY = this.scale.height - clH - 4;
+
+        ctrlHeader.setPosition(clX + PAD, clY + PAD);
+        ctrlText.setPosition(clX + PAD, clY + PAD + ctrlHeader.height + 4);
+
+        // =========================================================
+        // 2. Draw panels sized to fit the measured text
+        // =========================================================
+        const panels = this.add.graphics();
+        panels.setScrollFactor(0);
+        panels.setDepth(99);
+
+        // Scoreboard panel
+        drawHUDPanel(panels, 4, 4, sbW, sbH);
+
+        // Draw faction jacks on the panels graphics
+        let jackY = PAD + 3;
+        for (const fid of factionIds) {
+            drawFactionJack(panels, PAD, jackY, fid, jackW, 8);
+            jackY += 20;
         }
 
-        // Timer at top-right
-        this.timerText = this.add
-            .text(width - 12, 12, "", {
-                fontFamily: FONT_HEADING,
-                fontSize: "16px",
-                color: INK,
-            })
-            .setOrigin(1, 0)
-            .setScrollFactor(0)
-            .setDepth(100);
+        // Timer / objective panel
+        drawHUDPanel(panels, trX, 4, trW, trH);
 
-        // Objective text below timer
-        this.objectiveText = this.add
-            .text(width - 12, 32, "", {
-                fontFamily: FONT_BODY,
-                fontSize: "10px",
-                color: INK_LIGHT,
-            })
-            .setOrigin(1, 0)
-            .setScrollFactor(0)
-            .setDepth(100);
+        // Controls panel
+        drawHUDPanel(panels, clX, clY, clW, clH);
 
-        // Guerrilla activity indicator at bottom-left
+        // --- Guerrilla text (bottom-left, no panel — transient) ---
         this.guerrillaText = this.add
             .text(12, this.scale.height - 24, "", {
                 fontFamily: FONT_BODY,
@@ -144,50 +189,23 @@ export class HUDScene extends Phaser.Scene {
             })
             .setScrollFactor(0)
             .setDepth(100);
-
-        // Key guide at bottom-right (inside controls panel)
-        const keyLines = [
-            "Click: Select / Dispatch troops",
-            "Drag through nodes: Gather & dispatch",
-            "Dbl-click neighbor: Send scout",
-            "E: Fortify selected node",
-            "G: Deploy guerrilla (Spanish)",
-            "R: Build road (2-hop shortcut)",
-            "Right-drag: Pan  |  Wheel: Zoom",
-        ];
-        this.add
-            .text(width - 12, this.scale.height - 12, keyLines.join("\n"), {
-                fontFamily: FONT_BODY,
-                fontSize: "12px",
-                color: INK_LIGHT,
-                lineSpacing: 3,
-                align: "right",
-            })
-            .setOrigin(1, 1)
-            .setScrollFactor(0)
-            .setDepth(100);
     }
 
     update(): void {
         if (!this.gameState) return;
 
-        // Update faction stats
         for (const [fid, text] of this.factionTexts) {
             const state = this.gameState.factions.get(fid);
             if (!state) continue;
             const faction = FACTIONS[fid];
-            const status = state.eliminated ? " [ELIMINATED]" : "";
+            const status = state.eliminated ? " [ELIM]" : "";
             text.setText(
                 `${faction.name}: ${state.nodeCount} cities, ${state.totalTroops} troops${status}`,
             );
         }
 
-        // Update timer based on game mode
         if (this.gameState.gameMode === "short" && GAME_DURATION_S > 0) {
-            const remaining = Math.max(
-                0,
-                GAME_DURATION_S - this.gameState.elapsedTime,
-            );
+            const remaining = Math.max(0, GAME_DURATION_S - this.gameState.elapsedTime);
             const min = Math.floor(remaining / 60);
             const sec = Math.floor(remaining % 60);
             this.timerText.setText(
@@ -202,7 +220,6 @@ export class HUDScene extends Phaser.Scene {
             );
         }
 
-        // Update objective text for human faction
         if (this.humanFaction !== "neutral") {
             const obj = FACTION_OBJECTIVES[this.humanFaction];
             if (obj) {
@@ -210,7 +227,6 @@ export class HUDScene extends Phaser.Scene {
             }
         }
 
-        // Update guerrilla activity
         const recentRaids = this.gameState.guerrillaRaids.filter(
             (r) => this.gameState.elapsedTime - r.timestamp < 3,
         );
@@ -220,10 +236,10 @@ export class HUDScene extends Phaser.Scene {
             const parts: string[] = [];
             if (ambushes.length > 0) {
                 const totalKilled = ambushes.reduce((sum, r) => sum + r.troopsLost, 0);
-                parts.push(`${totalKilled} troops ambushed`);
+                parts.push(`${totalKilled} ambushed`);
             }
             if (drains.length > 0) {
-                parts.push(`${drains.length} nodes drained`);
+                parts.push(`${drains.length} drained`);
             }
             this.guerrillaText.setText(`Guerrilla: ${parts.join(", ")}`);
             this.guerrillaText.setAlpha(1);

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { drawCornerOrnaments, drawHorizontalRule, UI_COLORS, INK, FONT_TITLE } from "../ui/PeriodUI";
+import { drawRoughParchmentPage, drawCornerOrnaments, drawHorizontalRule, UI_COLORS, INK, FONT_TITLE } from "../ui/PeriodUI";
 
 export class BootScene extends Phaser.Scene {
     constructor() {
@@ -19,6 +19,10 @@ export class BootScene extends Phaser.Scene {
         const barHeight = 16;
         const x = (width - barWidth) / 2;
         const y = height / 2 + 10;
+
+        // Rough parchment page background
+        const pageGfx = this.add.graphics();
+        drawRoughParchmentPage(pageGfx, width, height, 16, 5, 50);
 
         // Title text
         this.add
