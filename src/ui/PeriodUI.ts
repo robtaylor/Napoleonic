@@ -306,8 +306,8 @@ export function drawRoughParchmentPage(
 }
 
 /**
- * Draw a HUD-style panel — parchment fill with thin ink border.
- * Designed for in-game overlays over the terrain map.
+ * Draw a HUD-style panel with rough papery edges — parchment fill
+ * with torn-edge silhouette. Designed for in-game overlays over terrain.
  */
 export function drawHUDPanel(
     gfx: Phaser.GameObjects.Graphics,
@@ -316,14 +316,81 @@ export function drawHUDPanel(
     w: number,
     h: number,
     alpha = 0.88,
+    seed = 0,
 ): void {
-    const r = 4;
+    // Scale segments and roughness to panel size
+    const perimeter = 2 * (w + h);
+    const segs = Math.max(12, Math.round(perimeter / 12));
+    const roughness = 2.5;
+    const rand = seededRandom(seed || Math.round(x * 7 + y * 13));
+
+    const x0 = x;
+    const y0 = y;
+    const x1 = x + w;
+    const y1 = y + h;
+
+    // Side segment counts proportional to edge length
+    const topSegs = Math.max(3, Math.round(segs * w / perimeter));
+    const rightSegs = Math.max(3, Math.round(segs * h / perimeter));
+    const botSegs = topSegs;
+    const leftSegs = rightSegs;
+
+    const points: { x: number; y: number }[] = [];
+
+    // Top edge
+    for (let i = 0; i <= topSegs; i++) {
+        const t = i / topSegs;
+        const jitter = (rand() - 0.5) * 2 * roughness;
+        points.push({ x: x0 + t * (x1 - x0), y: y0 + jitter });
+    }
+    // Right edge
+    for (let i = 1; i <= rightSegs; i++) {
+        const t = i / rightSegs;
+        const jitter = (rand() - 0.5) * 2 * roughness;
+        points.push({ x: x1 + jitter, y: y0 + t * (y1 - y0) });
+    }
+    // Bottom edge
+    for (let i = 1; i <= botSegs; i++) {
+        const t = i / botSegs;
+        const jitter = (rand() - 0.5) * 2 * roughness;
+        points.push({ x: x1 - t * (x1 - x0), y: y1 + jitter });
+    }
+    // Left edge
+    for (let i = 1; i < leftSegs; i++) {
+        const t = i / leftSegs;
+        const jitter = (rand() - 0.5) * 2 * roughness;
+        points.push({ x: x0 + jitter, y: y1 - t * (y1 - y0) });
+    }
+
+    // Drop shadow
+    gfx.fillStyle(UI_COLORS.shadow, 0.2);
+    gfx.beginPath();
+    gfx.moveTo(points[0]!.x + 2, points[0]!.y + 2);
+    for (let i = 1; i < points.length; i++) {
+        gfx.lineTo(points[i]!.x + 2, points[i]!.y + 2);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    // Fill parchment
     gfx.fillStyle(UI_COLORS.parchmentDark, alpha);
-    gfx.fillRoundedRect(x, y, w, h, r);
-    gfx.lineStyle(1, UI_COLORS.ink, 0.3);
-    gfx.strokeRoundedRect(x, y, w, h, r);
-    gfx.lineStyle(0.5, UI_COLORS.ink, 0.15);
-    gfx.strokeRoundedRect(x + 3, y + 3, w - 6, h - 6, r - 1);
+    gfx.beginPath();
+    gfx.moveTo(points[0]!.x, points[0]!.y);
+    for (let i = 1; i < points.length; i++) {
+        gfx.lineTo(points[i]!.x, points[i]!.y);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    // Subtle edge stroke
+    gfx.lineStyle(0.75, UI_COLORS.ink, 0.2);
+    gfx.beginPath();
+    gfx.moveTo(points[0]!.x, points[0]!.y);
+    for (let i = 1; i < points.length; i++) {
+        gfx.lineTo(points[i]!.x, points[i]!.y);
+    }
+    gfx.closePath();
+    gfx.strokePath();
 }
 
 /**
