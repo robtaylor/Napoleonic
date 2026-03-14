@@ -148,6 +148,75 @@ export const SPANISH_VICTORY_DELAY_S = 180;
 /** Spanish must hold at least this many nodes */
 export const SPANISH_MIN_NODES = 5;
 
+// === Edge Visuals ===
+
+/** Base edge line color */
+export const EDGE_COLOR = 0x6b5b3e;
+/** Base edge line alpha */
+export const EDGE_ALPHA = 0.5;
+/** Base edge line width */
+export const EDGE_WIDTH = 2.0;
+/** Edge highlight color (dispatch target) */
+export const EDGE_HIGHLIGHT_COLOR = 0x88ff88;
+/** Edge highlight alpha */
+export const EDGE_HIGHLIGHT_ALPHA = 0.6;
+/** Edge highlight width */
+export const EDGE_HIGHLIGHT_WIDTH = 2.5;
+/** Edge construction color */
+export const EDGE_CONSTRUCTION_COLOR = 0xffaa44;
+/** Edge construction alpha */
+export const EDGE_CONSTRUCTION_ALPHA = 0.5;
+/** Edge construction width */
+export const EDGE_CONSTRUCTION_WIDTH = 1.5;
+
+// === Fog of War ===
+
+/** Alpha for unscouted enemy nodes */
+export const FOG_NODE_ALPHA = 0.45;
+/** Alpha for edges between two unscouted nodes */
+export const FOG_EDGE_ALPHA = 0.15;
+/** Font size for "?" on unscouted nodes */
+export const FOG_QUESTION_FONT_SIZE = "14px";
+/** Color for "?" on unscouted nodes */
+export const FOG_QUESTION_COLOR = "#8888aa";
+
+// === Supply Route Visuals ===
+
+/** Supply route glow color (warm amber) */
+export const SUPPLY_ROUTE_COLOR = 0xc9a84c;
+/** Supply route glow alpha */
+export const SUPPLY_ROUTE_ALPHA = 0.5;
+/** Supply route glow width */
+export const SUPPLY_ROUTE_WIDTH = 2;
+/** Supply route update interval in ms */
+export const SUPPLY_ROUTE_UPDATE_MS = 500;
+
+// === Combat Feedback ===
+
+/** Combat flash duration in ms */
+export const COMBAT_FLASH_DURATION_MS = 400;
+/** Capture bounce scale */
+export const CAPTURE_BOUNCE_SCALE = 1.25;
+/** Capture bounce duration in ms */
+export const CAPTURE_BOUNCE_DURATION_MS = 150;
+/** Major capture camera shake duration in ms */
+export const CAMERA_SHAKE_DURATION_MS = 80;
+/** Major capture camera shake intensity */
+export const CAMERA_SHAKE_INTENSITY = 0.003;
+/** Reinforcement ring pulse duration in ms */
+export const REINFORCEMENT_PULSE_DURATION_MS = 500;
+/** Reinforcement ring color */
+export const REINFORCEMENT_PULSE_COLOR = 0x44dd44;
+
+// === Incoming Threat Indicators ===
+
+/** Progress threshold (0-1) at which threat indicator appears */
+export const THREAT_PROGRESS_THRESHOLD = 0.7;
+/** Threat indicator pulse speed (ms per cycle, used in Math.sin) */
+export const THREAT_PULSE_SPEED = 250;
+/** Threat indicator color */
+export const THREAT_COLOR = "#ff4444";
+
 /** Map bounds for Iberian Peninsula (lat/lng) */
 export const IBERIA_BOUNDS = {
     minLng: -10.5,

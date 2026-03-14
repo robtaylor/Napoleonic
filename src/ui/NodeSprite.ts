@@ -1,5 +1,18 @@
 import Phaser from "phaser";
-import { NODE_RADIUS, SUPPLY_MAX } from "../config/constants";
+import {
+    NODE_RADIUS,
+    SUPPLY_MAX,
+    FOG_NODE_ALPHA,
+    FOG_QUESTION_FONT_SIZE,
+    FOG_QUESTION_COLOR,
+    COMBAT_FLASH_DURATION_MS,
+    CAPTURE_BOUNCE_SCALE,
+    CAPTURE_BOUNCE_DURATION_MS,
+    REINFORCEMENT_PULSE_DURATION_MS,
+    REINFORCEMENT_PULSE_COLOR,
+    THREAT_PULSE_SPEED,
+    THREAT_COLOR,
+} from "../config/constants";
 import { FACTIONS, type FactionId } from "../data/factions";
 import type { NodeDef } from "../data/nodes";
 import type { NodeState } from "../game/state/NodeState";
@@ -24,6 +37,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
     private supplyRing: Phaser.GameObjects.Graphics;
     private fortIcon: Phaser.GameObjects.Text;
     private guerrillaIcon: Phaser.GameObjects.Text;
+    private threatIndicator: Phaser.GameObjects.Text;
     private raidFlashTimer = 0;
 
     constructor(
@@ -71,6 +85,19 @@ export class NodeSprite extends Phaser.GameObjects.Container {
             .setOrigin(0.5)
             .setVisible(false);
         this.add(this.guerrillaIcon);
+
+        // Incoming threat indicator (top-right, above fort icon)
+        this.threatIndicator = scene.add
+            .text(NODE_RADIUS + 4, -(NODE_RADIUS + 6), "", {
+                fontFamily: "Georgia, serif",
+                fontSize: "10px",
+                color: THREAT_COLOR,
+                stroke: "#000000",
+                strokeThickness: 2,
+            })
+            .setOrigin(0.5)
+            .setVisible(false);
+        this.add(this.threatIndicator);
 
         // Troop count text
         this.troopText = scene.add
@@ -120,7 +147,20 @@ export class NodeSprite extends Phaser.GameObjects.Container {
 
     /** Show "?" for unscouted enemy nodes */
     setTroopDisplay(count: number, scouted: boolean): void {
-        this.troopText.setText(scouted ? String(count) : "?");
+        if (scouted) {
+            this.troopText.setText(String(count));
+            this.troopText.setFontSize("12px");
+            this.troopText.setColor("#ffffff");
+        } else {
+            this.troopText.setText("?");
+            this.troopText.setFontSize(FOG_QUESTION_FONT_SIZE);
+            this.troopText.setColor(FOG_QUESTION_COLOR);
+        }
+    }
+
+    /** Dim or restore the entire node container for fog of war */
+    setFogged(fogged: boolean): void {
+        this.setAlpha(fogged ? FOG_NODE_ALPHA : 1);
     }
 
     /** Highlight the node when selected */
@@ -227,6 +267,62 @@ export class NodeSprite extends Phaser.GameObjects.Container {
             this.circle.lineStyle(3, 0xffaa00, alpha);
             this.circle.strokeCircle(0, 0, NODE_RADIUS + 4);
         }
+    }
+
+    /** Update incoming threat indicator */
+    updateThreat(incomingTroops: number): void {
+        if (incomingTroops > 0) {
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() / THREAT_PULSE_SPEED);
+            this.threatIndicator.setText(`! ${incomingTroops}`);
+            this.threatIndicator.setAlpha(pulse);
+            this.threatIndicator.setVisible(true);
+        } else {
+            this.threatIndicator.setVisible(false);
+        }
+    }
+
+    /** Flash white overlay on combat (attack hits a defended node) */
+    triggerCombatFlash(): void {
+        const flash = this.scene.add.graphics();
+        flash.fillStyle(0xffffff, 0.6);
+        flash.fillCircle(0, 0, NODE_RADIUS + 2);
+        this.add(flash);
+        this.scene.tweens.add({
+            targets: flash,
+            alpha: 0,
+            duration: COMBAT_FLASH_DURATION_MS,
+            ease: "Power2",
+            onComplete: () => flash.destroy(),
+        });
+    }
+
+    /** Scale bounce on capture (node changes hands) */
+    triggerCaptureBounce(): void {
+        this.scene.tweens.add({
+            targets: this,
+            scaleX: CAPTURE_BOUNCE_SCALE,
+            scaleY: CAPTURE_BOUNCE_SCALE,
+            duration: CAPTURE_BOUNCE_DURATION_MS,
+            yoyo: true,
+            ease: "Quad.easeOut",
+        });
+    }
+
+    /** Green ring pulse on friendly reinforcement arrival */
+    triggerReinforcementPulse(): void {
+        const ring = this.scene.add.graphics();
+        ring.lineStyle(2, REINFORCEMENT_PULSE_COLOR, 0.7);
+        ring.strokeCircle(0, 0, NODE_RADIUS);
+        this.add(ring);
+        this.scene.tweens.add({
+            targets: ring,
+            scaleX: 2,
+            scaleY: 2,
+            alpha: 0,
+            duration: REINFORCEMENT_PULSE_DURATION_MS,
+            ease: "Power2",
+            onComplete: () => ring.destroy(),
+        });
     }
 
     private drawCircle(): void {

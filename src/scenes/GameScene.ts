@@ -9,6 +9,10 @@ import {
     ROAD_BUILD_TIME_S,
     GUERRILLA_DEPLOY_COST,
     SUPPLY_ALLIES,
+    CAMERA_SHAKE_DURATION_MS,
+    CAMERA_SHAKE_INTENSITY,
+    SUPPLY_ROUTE_UPDATE_MS,
+    THREAT_PROGRESS_THRESHOLD,
 } from "../config/constants";
 import { NODES } from "../data/nodes";
 import { EDGES } from "../data/edges";
@@ -64,6 +68,9 @@ export class GameScene extends Phaser.Scene {
 
     // Map from "fromId-toId" to the EdgeLine for roads under construction / newly built
     private constructionEdgeLines: Map<string, EdgeLine> = new Map();
+
+    // Supply route update throttle
+    private supplyRouteTimer = 0;
 
     // Camera drag state
     private isDragging = false;
@@ -147,7 +154,7 @@ export class GameScene extends Phaser.Scene {
             const from = this.posMap.get(fromId);
             const to = this.posMap.get(toId);
             if (!from || !to) continue;
-            const edge = new EdgeLine(this, from.screenX, from.screenY, to.screenX, to.screenY);
+            const edge = new EdgeLine(this, from.screenX, from.screenY, to.screenX, to.screenY, false, fromId, toId);
             edge.setDepth(3);
             this.edgeLines.push(edge);
         }
@@ -426,6 +433,7 @@ export class GameScene extends Phaser.Scene {
             fromPos.screenY,
             toPos.screenX,
             toPos.screenY,
+            dispatchType,
         );
         sprite.setDepth(5);
         this.troopSprites.set(dispatch.id, sprite);
@@ -468,11 +476,40 @@ export class GameScene extends Phaser.Scene {
             fromPos.screenY,
             toPos.screenX,
             toPos.screenY,
+            "scout",
         );
         sprite.setDepth(5);
         this.troopSprites.set(dispatch.id, sprite);
 
         this.updateNodeSprite(fromId);
+    }
+
+    /** Check if a node is visible (scouted) to the human player */
+    private isNodeScouted(nodeId: string): boolean {
+        const nodeState = this.gameState.nodes.get(nodeId);
+        if (!nodeState) return false;
+
+        const humanFactions = this.config.humanFactions;
+        if (humanFactions.includes(nodeState.owner) || nodeState.owner === "neutral") {
+            return true;
+        }
+
+        for (const hFaction of humanFactions) {
+            const scoutExpiry = nodeState.scoutedBy[hFaction];
+            if (scoutExpiry !== undefined && scoutExpiry > this.gameState.elapsedTime) {
+                return true;
+            }
+            const neighbors = this.gameState.adjacency.get(nodeId);
+            if (neighbors) {
+                for (const nid of neighbors) {
+                    const neighbor = this.gameState.nodes.get(nid);
+                    if (neighbor && neighbor.owner === hFaction) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private updateNodeSprite(nodeId: string): void {
@@ -484,37 +521,10 @@ export class GameScene extends Phaser.Scene {
             sprite.setFaction(nodeState.owner);
         }
 
-        // Determine if the human player can see this node's troop count
-        const humanFactions = this.config.humanFactions;
-        const isOwned = humanFactions.includes(nodeState.owner);
-        const isNeutral = nodeState.owner === "neutral";
-
-        // Check if any human faction has scouted this node or has adjacent territory
-        let scouted = isOwned || isNeutral;
-        if (!scouted) {
-            for (const hFaction of humanFactions) {
-                // Check scouted status
-                const scoutExpiry = nodeState.scoutedBy[hFaction];
-                if (scoutExpiry !== undefined && scoutExpiry > this.gameState.elapsedTime) {
-                    scouted = true;
-                    break;
-                }
-                // Adjacent to own territory = visible (border scouts)
-                const neighbors = this.gameState.adjacency.get(nodeId);
-                if (neighbors) {
-                    for (const nid of neighbors) {
-                        const neighbor = this.gameState.nodes.get(nid);
-                        if (neighbor && neighbor.owner === hFaction) {
-                            scouted = true;
-                            break;
-                        }
-                    }
-                }
-                if (scouted) break;
-            }
-        }
+        const scouted = this.isNodeScouted(nodeId);
 
         sprite.setTroopDisplay(nodeState.troops, scouted);
+        sprite.setFogged(!scouted);
         sprite.updateSupply(nodeState);
         sprite.updateFortification(nodeState);
         sprite.updateGuerrilla(nodeState);
@@ -631,7 +641,42 @@ export class GameScene extends Phaser.Scene {
 
         // 6. Combat resolution (fortification bonus, scout bonus)
         if (arrived.length > 0) {
+            // Snapshot owners before combat for feedback detection
+            const ownersBefore = new Map<string, FactionId>();
+            for (const dispatch of arrived) {
+                const node = this.gameState.nodes.get(dispatch.toNodeId);
+                if (node) ownersBefore.set(dispatch.toNodeId, node.owner);
+            }
+
             this.combatSystem.resolve(this.gameState, arrived);
+
+            // Detect combat events and trigger feedback
+            for (const dispatch of arrived) {
+                const nodeId = dispatch.toNodeId;
+                const nodeSprite = this.nodeSprites.get(nodeId);
+                if (!nodeSprite) continue;
+
+                const prevOwner = ownersBefore.get(nodeId);
+                const nodeState = this.gameState.nodes.get(nodeId);
+                if (!prevOwner || !nodeState) continue;
+
+                if (prevOwner !== nodeState.owner) {
+                    // Capture: node changed hands
+                    nodeSprite.triggerCaptureBounce();
+
+                    // Major capture: capital or fortress
+                    const nodeDef = this.gameState.getNodeDef(nodeId);
+                    if (nodeDef && (nodeDef.type === "capital" || nodeDef.type === "fortress")) {
+                        this.cameras.main.shake(CAMERA_SHAKE_DURATION_MS, CAMERA_SHAKE_INTENSITY);
+                    }
+                } else if (dispatch.owner === prevOwner) {
+                    // Reinforcement: friendly troops arrived at own node
+                    nodeSprite.triggerReinforcementPulse();
+                } else {
+                    // Defense: attack was repelled
+                    nodeSprite.triggerCombatFlash();
+                }
+            }
 
             // Clean up arrived troop sprites
             for (const dispatch of arrived) {
@@ -668,6 +713,46 @@ export class GameScene extends Phaser.Scene {
             if (sprite) {
                 this.updateNodeSprite(nodeState.id);
                 sprite.updateRaidFlash(delta);
+            }
+        }
+
+        // Update threat indicators: scan dispatches heading toward human-owned nodes
+        const incomingThreats = new Map<string, number>();
+        const humanFactions = this.config.humanFactions;
+        for (const dispatch of this.gameState.dispatches) {
+            if (dispatch.progress >= THREAT_PROGRESS_THRESHOLD) {
+                const targetNode = this.gameState.nodes.get(dispatch.toNodeId);
+                if (targetNode && humanFactions.includes(targetNode.owner) && !humanFactions.includes(dispatch.owner)) {
+                    incomingThreats.set(dispatch.toNodeId, (incomingThreats.get(dispatch.toNodeId) ?? 0) + dispatch.troops);
+                }
+            }
+        }
+        for (const [nodeId, sprite] of this.nodeSprites) {
+            sprite.updateThreat(incomingThreats.get(nodeId) ?? 0);
+        }
+
+        // Update edge fog and supply routes (throttled)
+        this.supplyRouteTimer += delta;
+        const updateEdgeVisuals = this.supplyRouteTimer >= SUPPLY_ROUTE_UPDATE_MS;
+        if (updateEdgeVisuals) this.supplyRouteTimer = 0;
+
+        for (const edge of this.edgeLines) {
+            if (!edge.fromId || !edge.toId) continue;
+
+            // Fog: dim edges between two unscouted nodes
+            const fromScouted = this.isNodeScouted(edge.fromId);
+            const toScouted = this.isNodeScouted(edge.toId);
+            edge.setFogged(!fromScouted && !toScouted);
+
+            // Supply route glow (throttled)
+            if (updateEdgeVisuals) {
+                const fromNode = this.gameState.nodes.get(edge.fromId);
+                const toNode = this.gameState.nodes.get(edge.toId);
+                const isSupplyRoute = fromNode && toNode
+                    && humanFactions.includes(fromNode.owner)
+                    && fromNode.owner === toNode.owner
+                    && fromNode.supplied && toNode.supplied;
+                edge.setSupplyRoute(!!isSupplyRoute);
             }
         }
 

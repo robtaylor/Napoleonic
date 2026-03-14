@@ -1,4 +1,19 @@
 import Phaser from "phaser";
+import {
+    EDGE_COLOR,
+    EDGE_ALPHA,
+    EDGE_WIDTH,
+    EDGE_HIGHLIGHT_COLOR,
+    EDGE_HIGHLIGHT_ALPHA,
+    EDGE_HIGHLIGHT_WIDTH,
+    EDGE_CONSTRUCTION_COLOR,
+    EDGE_CONSTRUCTION_ALPHA,
+    EDGE_CONSTRUCTION_WIDTH,
+    FOG_EDGE_ALPHA,
+    SUPPLY_ROUTE_COLOR,
+    SUPPLY_ROUTE_ALPHA,
+    SUPPLY_ROUTE_WIDTH,
+} from "../config/constants";
 
 /**
  * Draws a connection line between two node positions.
@@ -6,6 +21,8 @@ import Phaser from "phaser";
 export class EdgeLine {
     private graphics: Phaser.GameObjects.Graphics;
     private _isConstructing = false;
+    private _isFogged = false;
+    private _isSupplyRoute = false;
 
     constructor(
         scene: Phaser.Scene,
@@ -14,6 +31,8 @@ export class EdgeLine {
         public readonly toX: number,
         public readonly toY: number,
         constructing = false,
+        public readonly fromId: string = "",
+        public readonly toId: string = "",
     ) {
         this.graphics = scene.add.graphics();
         this._isConstructing = constructing;
@@ -30,12 +49,33 @@ export class EdgeLine {
         this.draw();
     }
 
+    /** Set fog state (both endpoints unscouted) */
+    setFogged(fogged: boolean): void {
+        if (this._isFogged === fogged) return;
+        this._isFogged = fogged;
+        this.draw();
+    }
+
+    /** Set supply route glow state */
+    setSupplyRoute(isRoute: boolean): void {
+        if (this._isSupplyRoute === isRoute) return;
+        this._isSupplyRoute = isRoute;
+        this.draw();
+    }
+
     draw(): void {
         this.graphics.clear();
         if (this._isConstructing) {
-            this.drawDashed(0xffaa44, 0.5, 1.5);
+            this.drawDashed(EDGE_CONSTRUCTION_COLOR, EDGE_CONSTRUCTION_ALPHA, EDGE_CONSTRUCTION_WIDTH);
+        } else if (this._isSupplyRoute) {
+            this.graphics.lineStyle(SUPPLY_ROUTE_WIDTH, SUPPLY_ROUTE_COLOR, SUPPLY_ROUTE_ALPHA);
+            this.graphics.beginPath();
+            this.graphics.moveTo(this.fromX, this.fromY);
+            this.graphics.lineTo(this.toX, this.toY);
+            this.graphics.strokePath();
         } else {
-            this.graphics.lineStyle(1.5, 0x6b5b3e, 0.35);
+            const alpha = this._isFogged ? FOG_EDGE_ALPHA : EDGE_ALPHA;
+            this.graphics.lineStyle(EDGE_WIDTH, EDGE_COLOR, alpha);
             this.graphics.beginPath();
             this.graphics.moveTo(this.fromX, this.fromY);
             this.graphics.lineTo(this.toX, this.toY);
@@ -51,7 +91,7 @@ export class EdgeLine {
     setHighlight(highlighted: boolean): void {
         this.graphics.clear();
         if (highlighted) {
-            this.graphics.lineStyle(2.5, 0x88ff88, 0.6);
+            this.graphics.lineStyle(EDGE_HIGHLIGHT_WIDTH, EDGE_HIGHLIGHT_COLOR, EDGE_HIGHLIGHT_ALPHA);
             this.graphics.beginPath();
             this.graphics.moveTo(this.fromX, this.fromY);
             this.graphics.lineTo(this.toX, this.toY);
