@@ -203,7 +203,7 @@ async function fetchTerrainTiles(): Promise<ElevationGrid> {
                     const elevation = r * 256 + g + b / 256 - 32768;
 
                     const dstIdx = (offsetY + py) * totalWidth + (offsetX + px);
-                    elevData[dstIdx] = Math.max(0, elevation);
+                    elevData[dstIdx] = elevation; // Keep raw (negative = ocean)
                 }
             }
         }
@@ -221,7 +221,22 @@ async function fetchTerrainTiles(): Promise<ElevationGrid> {
 
 // ─── Color mapping ───
 
+// Ocean color palette (deeper = darker blue)
+const OCEAN_COLOR_SHALLOW: [number, number, number] = [90, 130, 170];  // coastal shelf
+const OCEAN_COLOR_DEEP: [number, number, number] = [50, 85, 130];      // deep ocean
+
 function elevationToColor(elevation: number): [number, number, number] {
+    // Ocean: elevation <= 0
+    if (elevation <= 0) {
+        // Interpolate between shallow and deep based on depth
+        const depth = Math.min(Math.abs(elevation), 4000);
+        const t = Math.min(depth / 2000, 1); // normalize to 0-1
+        return [
+            Math.round(OCEAN_COLOR_SHALLOW[0] + t * (OCEAN_COLOR_DEEP[0] - OCEAN_COLOR_SHALLOW[0])),
+            Math.round(OCEAN_COLOR_SHALLOW[1] + t * (OCEAN_COLOR_DEEP[1] - OCEAN_COLOR_SHALLOW[1])),
+            Math.round(OCEAN_COLOR_SHALLOW[2] + t * (OCEAN_COLOR_DEEP[2] - OCEAN_COLOR_SHALLOW[2])),
+        ];
+    }
     if (elevation <= PALETTE[0]!.elevation) return PALETTE[0]!.color;
     const last = PALETTE[PALETTE.length - 1]!;
     if (elevation >= last.elevation) return last.color;
@@ -291,9 +306,8 @@ function downsampleGrid(grid: ElevationGrid): number[] {
             const v01 = grid.data[y0 * grid.width + x1]!;
             const v11 = grid.data[y1 * grid.width + x1]!;
 
-            result[row * GRID_COLS + col] = Math.round(
-                v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy,
-            );
+            const sampled = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy;
+            result[row * GRID_COLS + col] = Math.round(Math.max(0, sampled));
         }
     }
 

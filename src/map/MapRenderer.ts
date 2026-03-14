@@ -61,7 +61,7 @@ export class MapRenderer {
         return this._landGraphics;
     }
 
-    /** Draw land polygons filled with parchment color (also serves as geometry mask source for terrain) */
+    /** Draw land coastline outlines (terrain image provides land/ocean colors) */
     drawLand(geojson: GeoJSONFeatureCollection): void {
         const g = this._landGraphics;
         g.clear();
@@ -72,7 +72,6 @@ export class MapRenderer {
                 const projected = this.projectRing(ring);
                 if (projected.length < 3) continue;
 
-                g.fillStyle(MAP_COLORS.land, 1);
                 g.lineStyle(1.5, MAP_COLORS.landStroke, 0.8);
 
                 g.beginPath();
@@ -83,7 +82,6 @@ export class MapRenderer {
                     g.lineTo(pt[0], pt[1]);
                 }
                 g.closePath();
-                g.fillPath();
                 g.strokePath();
             }
         }
@@ -172,10 +170,6 @@ export class MapRenderer {
         this.terrainImage = scene.add.image(0, 0, "terrain-reprojected");
         this.terrainImage.setOrigin(0, 0);
         this.terrainImage.setDepth(0);
-
-        // Apply geometry mask from land polygons
-        const mask = this._landGraphics.createGeometryMask();
-        this.terrainImage.setMask(mask);
     }
 
     /** Convert latitude to Web Mercator Y (normalized) */
@@ -264,13 +258,14 @@ export class MapRenderer {
         vignetteImage.setScrollFactor(0); // Fixed to camera (doesn't pan/zoom)
     }
 
-    /** Set depth ordering so land is behind borders and rivers */
+    /** Set depth ordering: terrain behind land stroke, which is behind borders and rivers */
     setDepths(landDepth: number, borderDepth: number, riverDepth: number): void {
         this._landGraphics.setDepth(landDepth);
         this.borderGraphics.setDepth(borderDepth);
         this.riverGraphics.setDepth(riverDepth);
         if (this.terrainImage) {
-            this.terrainImage.setDepth(landDepth);
+            // Terrain below land graphics so coastline stroke is visible
+            this.terrainImage.setDepth(landDepth - 1);
         }
     }
 
