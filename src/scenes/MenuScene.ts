@@ -48,9 +48,13 @@ export class MenuScene extends Phaser.Scene {
         // ===== Outer page border =====
         drawCornerOrnaments(gfx, 30, 20, width - 60, height - 40, 16);
 
+        // Vertical offset to center content block in the page
+        // Content spans ~550px; (720-550)/2 ≈ 85, so start at 85 instead of 50
+        const oy = 36;
+
         // ===== Title =====
         this.add
-            .text(cx, 50, "NAPOLIONIC", {
+            .text(cx, 50 + oy, "NAPOLIONIC", {
                 fontFamily: FONT_TITLE,
                 fontSize: "52px",
                 color: INK,
@@ -60,10 +64,10 @@ export class MenuScene extends Phaser.Scene {
         // Double-rule box around the subtitle (like "CAVALERIE" in the ref)
         const subW = 280;
         const subH = 32;
-        drawDoubleRuleBox(gfx, cx - subW / 2, 94, subW, subH);
+        drawDoubleRuleBox(gfx, cx - subW / 2, 94 + oy, subW, subH);
 
         this.add
-            .text(cx, 110, "The Peninsular War", {
+            .text(cx, 110 + oy, "The Peninsular War", {
                 fontFamily: FONT_HEADING,
                 fontSize: "16px",
                 color: INK,
@@ -71,21 +75,21 @@ export class MenuScene extends Phaser.Scene {
             .setOrigin(0.5);
 
         this.add
-            .text(cx, 137, "Iberia, 1808\u20131814", {
+            .text(cx, 137 + oy, "Iberia, 1808\u20131814", {
                 fontFamily: FONT_BODY,
                 fontSize: "11px",
                 color: INK_FAINT,
             })
             .setOrigin(0.5);
 
-        drawStarburst(gfx, cx - 72, 137, 4, 6);
-        drawStarburst(gfx, cx + 72, 137, 4, 6);
+        drawStarburst(gfx, cx - 72, 137 + oy, 4, 6);
+        drawStarburst(gfx, cx + 72, 137 + oy, 4, 6);
 
-        drawHorizontalRule(gfx, cx, 156, 460, true);
+        drawHorizontalRule(gfx, cx, 156 + oy, 460, true);
 
         // ===== Faction selection =====
         this.add
-            .text(cx, 174, "Your Faction", {
+            .text(cx, 174 + oy, "Your Faction", {
                 fontFamily: FONT_HEADING,
                 fontSize: "13px",
                 color: INK_LIGHT,
@@ -106,10 +110,10 @@ export class MenuScene extends Phaser.Scene {
             const bx = factionStartX + i * factionSpacing;
 
             // Faction color jack (left of text)
-            drawFactionJack(gfx, bx - 52, 199, f.id, 12, 10);
+            drawFactionJack(gfx, bx - 52, 199 + oy, f.id, 12, 10);
 
             const btn = this.add
-                .text(bx, 204, f.label, {
+                .text(bx, 204 + oy, f.label, {
                     fontFamily: FONT_BODY,
                     fontSize: "14px",
                     color: INK,
@@ -126,11 +130,11 @@ export class MenuScene extends Phaser.Scene {
             factionBtns.push(btn);
         }
 
-        drawHorizontalRule(gfx, cx, 232, 400, false);
+        drawHorizontalRule(gfx, cx, 232 + oy, 400, false);
 
         // ===== AI Difficulty =====
         this.add
-            .text(cx, 248, "Difficulty", {
+            .text(cx, 248 + oy, "Difficulty", {
                 fontFamily: FONT_HEADING,
                 fontSize: "13px",
                 color: INK_LIGHT,
@@ -149,7 +153,7 @@ export class MenuScene extends Phaser.Scene {
         for (let i = 0; i < difficulties.length; i++) {
             const d = difficulties[i]!;
             const btn = this.add
-                .text(diffStartX + i * diffSpacing, 272, d.label, {
+                .text(diffStartX + i * diffSpacing, 272 + oy, d.label, {
                     fontFamily: FONT_BODY,
                     fontSize: "14px",
                     color: INK,
@@ -170,11 +174,11 @@ export class MenuScene extends Phaser.Scene {
             diffBtns.push(btn);
         }
 
-        drawHorizontalRule(gfx, cx, 302, 400, false);
+        drawHorizontalRule(gfx, cx, 302 + oy, 400, false);
 
         // ===== Game Length =====
         this.add
-            .text(cx, 318, "Game Length", {
+            .text(cx, 318 + oy, "Game Length", {
                 fontFamily: FONT_HEADING,
                 fontSize: "13px",
                 color: INK_LIGHT,
@@ -192,7 +196,7 @@ export class MenuScene extends Phaser.Scene {
         for (let i = 0; i < modes.length; i++) {
             const m = modes[i]!;
             const btn = this.add
-                .text(modeStartX + i * modeSpacing, 342, m.label, {
+                .text(modeStartX + i * modeSpacing, 342 + oy, m.label, {
                     fontFamily: FONT_BODY,
                     fontSize: "14px",
                     color: INK,
@@ -213,11 +217,11 @@ export class MenuScene extends Phaser.Scene {
             modeBtns.push(btn);
         }
 
-        drawHorizontalRule(gfx, cx, 372, 400, false);
+        drawHorizontalRule(gfx, cx, 372 + oy, 400, false);
 
         // ===== Scenario =====
         this.add
-            .text(cx, 388, "Scenario", {
+            .text(cx, 388 + oy, "Scenario", {
                 fontFamily: FONT_HEADING,
                 fontSize: "13px",
                 color: INK_LIGHT,
@@ -231,7 +235,7 @@ export class MenuScene extends Phaser.Scene {
         for (let i = 0; i < scenCount; i++) {
             const s = SCENARIOS[i]!;
             const btn = this.add
-                .text(scenStartX + i * scenSpacing, 412, `${s.year}: ${s.name}`, {
+                .text(scenStartX + i * scenSpacing, 412 + oy, `${s.year}: ${s.name}`, {
                     fontFamily: FONT_BODY,
                     fontSize: "13px",
                     color: INK,
@@ -254,7 +258,7 @@ export class MenuScene extends Phaser.Scene {
 
         // ===== Multiplayer toggle =====
         const mpBtn = this.add
-            .text(cx, 452, "[ Local Multiplayer: OFF ]", {
+            .text(cx, 452 + oy, "[ Local Multiplayer: OFF ]", {
                 fontFamily: FONT_BODY,
                 fontSize: "12px",
                 color: INK_FAINT,
@@ -271,14 +275,14 @@ export class MenuScene extends Phaser.Scene {
         });
 
         // ===== Start button — double-rule boxed like "CAVALERIE" =====
-        drawHorizontalRule(gfx, cx, 478, 460, true);
+        drawHorizontalRule(gfx, cx, 478 + oy, 460, true);
 
         const startBoxW = 200;
         const startBoxH = 48;
-        drawDoubleRuleBox(gfx, cx - startBoxW / 2, 496, startBoxW, startBoxH);
+        drawDoubleRuleBox(gfx, cx - startBoxW / 2, 496 + oy, startBoxW, startBoxH);
 
         const startBtn = this.add
-            .text(cx, 520, "START", {
+            .text(cx, 520 + oy, "START", {
                 fontFamily: FONT_HEADING,
                 fontSize: "30px",
                 color: INK,
@@ -319,10 +323,10 @@ export class MenuScene extends Phaser.Scene {
         });
 
         // ===== Controls =====
-        drawHorizontalRule(gfx, cx, 558, 460, false);
+        drawHorizontalRule(gfx, cx, 558 + oy, 460, false);
 
         this.add
-            .text(cx, 578, "Controls: Click node \u2192 select, click neighbor \u2192 dispatch troops", {
+            .text(cx, 578 + oy, "Controls: Click node \u2192 select, click neighbor \u2192 dispatch troops", {
                 fontFamily: FONT_BODY,
                 fontSize: "11px",
                 color: INK_FAINT,
@@ -332,7 +336,7 @@ export class MenuScene extends Phaser.Scene {
         this.add
             .text(
                 cx,
-                596,
+                596 + oy,
                 "E = Fortify  |  R = Build road  |  Dbl-click = Scout  |  Right-drag = Pan  |  Wheel = Zoom",
                 {
                     fontFamily: FONT_BODY,
