@@ -88,32 +88,25 @@ export class MapRenderer {
         }
     }
 
-    /** Draw hypsometric terrain coloring from elevation data */
+    /** Draw topographic terrain coloring from elevation data */
     drawTerrain(elevationData: ElevationData, scene: Phaser.Scene): void {
         const { width, height } = scene.scale;
-        // Render at half resolution for performance
-        const canvasW = Math.ceil(width / 2);
-        const canvasH = Math.ceil(height / 2);
 
         const canvas = document.createElement("canvas");
-        canvas.width = canvasW;
-        canvas.height = canvasH;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        const imageData = ctx.createImageData(canvasW, canvasH);
+        const imageData = ctx.createImageData(width, height);
         const pixels = imageData.data;
 
         const { cols, rows, bounds, data } = elevationData;
 
-        for (let py = 0; py < canvasH; py++) {
-            for (let px = 0; px < canvasW; px++) {
-                // Map canvas pixel to screen coords (2x scale)
-                const screenX = px * 2;
-                const screenY = py * 2;
-
-                // Unproject to lat/lng
-                const latlng = this.projection.unproject(screenX, screenY);
+        for (let py = 0; py < height; py++) {
+            for (let px = 0; px < width; px++) {
+                // Unproject screen pixel to lat/lng
+                const latlng = this.projection.unproject(px, py);
                 if (!latlng) continue;
 
                 const [lng, lat] = latlng;
@@ -132,7 +125,7 @@ export class MapRenderer {
                 // Map elevation to color
                 const [r, g, b] = this.elevationToColor(elevation);
 
-                const idx = (py * canvasW + px) * 4;
+                const idx = (py * width + px) * 4;
                 pixels[idx] = r;
                 pixels[idx + 1] = g;
                 pixels[idx + 2] = b;
@@ -151,7 +144,6 @@ export class MapRenderer {
         scene.textures.addCanvas("terrain", canvas);
         this.terrainImage = scene.add.image(0, 0, "terrain");
         this.terrainImage.setOrigin(0, 0);
-        this.terrainImage.setScale(2);
         this.terrainImage.setDepth(0);
 
         // Apply geometry mask from land polygons — terrain only visible on land
