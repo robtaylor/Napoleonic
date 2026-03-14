@@ -9,7 +9,8 @@
         "build": "vite build --config vite/config.prod.mjs",
         "preview": "vite preview --config vite/config.prod.mjs",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "generate:terrain": "tsx scripts/generate-terrain.ts"
     },
     "devDependencies": {
         "@turf/turf": "^7.3.4",

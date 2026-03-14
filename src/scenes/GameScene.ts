@@ -19,7 +19,7 @@ import { NODES } from "../data/nodes";
 import { EDGES } from "../data/edges";
 import { SCENARIOS } from "../data/scenarios";
 import { MapProjection } from "../map/MapProjection";
-import { MapRenderer } from "../map/MapRenderer";
+import { MapRenderer, type ElevationData } from "../map/MapRenderer";
 import { projectNodes, type NodePosition } from "../map/NodePlacement";
 import { GameState } from "../game/state/GameState";
 import { TroopGenerationSystem } from "../game/systems/TroopGenerationSystem";
@@ -39,6 +39,7 @@ import { MediumAI } from "../game/ai/MediumAI";
 import { HardAI } from "../game/ai/HardAI";
 import type { FactionId } from "../data/factions";
 import type { DispatchType } from "../game/state/TroopDispatch";
+import { EDGE_WAYPOINTS } from "../data/edge-waypoints";
 
 export class GameScene extends Phaser.Scene {
     private config: GameConfig = {
@@ -107,7 +108,15 @@ export class GameScene extends Phaser.Scene {
         const borderData = this.cache.json.get("iberia-borders");
         const riverData = this.cache.json.get("iberia-rivers");
 
-        if (landData) this.mapRenderer.drawLand(landData);
+        const elevationData = this.cache.json.get("iberia-elevation") as ElevationData | undefined;
+
+        if (landData) {
+            // If we have terrain data, draw land as stroke-only (terrain canvas replaces fill)
+            this.mapRenderer.drawLand(landData, !elevationData);
+        }
+        if (elevationData) {
+            this.mapRenderer.drawTerrain(elevationData, this);
+        }
         if (borderData) this.mapRenderer.drawBorders(borderData);
         if (riverData) this.mapRenderer.drawRivers(riverData);
         this.mapRenderer.setDepths(0, 1, 2);
@@ -150,12 +159,33 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        // Draw edges
+        // Draw edges (with elevation-aware waypoints if available)
         for (const [fromId, toId] of EDGES) {
             const from = this.posMap.get(fromId);
             const to = this.posMap.get(toId);
             if (!from || !to) continue;
-            const edge = new EdgeLine(this, from.screenX, from.screenY, to.screenX, to.screenY, false, fromId, toId);
+
+            // Look up waypoints and project to screen coords
+            const waypointKey = `${fromId}|${toId}`;
+            const reverseKey = `${toId}|${fromId}`;
+            const rawWaypoints = EDGE_WAYPOINTS[waypointKey] ?? EDGE_WAYPOINTS[reverseKey];
+            let screenWaypoints: [number, number][] = [];
+            if (rawWaypoints && rawWaypoints.length > 0) {
+                // Waypoints stored as [lng, lat], project to screen
+                screenWaypoints = rawWaypoints.map(([lng, lat]) => {
+                    try {
+                        return this.mapProjection.project(lng, lat);
+                    } catch {
+                        return null;
+                    }
+                }).filter((p): p is [number, number] => p !== null);
+                // If reverse key was used, reverse the waypoints
+                if (!EDGE_WAYPOINTS[waypointKey] && EDGE_WAYPOINTS[reverseKey]) {
+                    screenWaypoints.reverse();
+                }
+            }
+
+            const edge = new EdgeLine(this, from.screenX, from.screenY, to.screenX, to.screenY, false, fromId, toId, screenWaypoints);
             edge.setDepth(3);
             this.edgeLines.push(edge);
         }
@@ -416,6 +446,28 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    /** Get screen-projected waypoints for an edge between two nodes */
+    private getEdgeWaypoints(fromId: string, toId: string): [number, number][] {
+        const forwardKey = `${fromId}|${toId}`;
+        const reverseKey = `${toId}|${fromId}`;
+        const rawWaypoints = EDGE_WAYPOINTS[forwardKey] ?? EDGE_WAYPOINTS[reverseKey];
+        if (!rawWaypoints || rawWaypoints.length === 0) return [];
+
+        const screenWps = rawWaypoints.map(([lng, lat]) => {
+            try {
+                return this.mapProjection.project(lng, lat);
+            } catch {
+                return null;
+            }
+        }).filter((p): p is [number, number] => p !== null);
+
+        // Reverse if we matched the reverse key
+        if (!EDGE_WAYPOINTS[forwardKey] && EDGE_WAYPOINTS[reverseKey]) {
+            screenWps.reverse();
+        }
+        return screenWps;
+    }
+
     /** Core dispatch logic used by both human and AI */
     private executeDispatch(fromId: string, toId: string, dispatchType: DispatchType = "troops"): void {
         const fromNode = this.gameState.nodes.get(fromId);
@@ -444,6 +496,7 @@ export class GameScene extends Phaser.Scene {
             dispatchType,
         );
 
+        const waypoints = this.getEdgeWaypoints(fromId, toId);
         const sprite = new TroopSprite(
             this,
             dispatch.id,
@@ -454,6 +507,7 @@ export class GameScene extends Phaser.Scene {
             toPos.screenX,
             toPos.screenY,
             dispatchType,
+            waypoints,
         );
         sprite.setDepth(5);
         this.troopSprites.set(dispatch.id, sprite);
@@ -487,6 +541,7 @@ export class GameScene extends Phaser.Scene {
             "scout",
         );
 
+        const waypoints = this.getEdgeWaypoints(fromId, toId);
         const sprite = new TroopSprite(
             this,
             dispatch.id,
@@ -497,6 +552,7 @@ export class GameScene extends Phaser.Scene {
             toPos.screenX,
             toPos.screenY,
             "scout",
+            waypoints,
         );
         sprite.setDepth(5);
         this.troopSprites.set(dispatch.id, sprite);

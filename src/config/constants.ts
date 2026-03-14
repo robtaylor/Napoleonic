@@ -229,3 +229,17 @@ export const IBERIA_BOUNDS = {
     minLat: 35.5,
     maxLat: 44.0,
 } as const;
+
+// === Terrain Palette ===
+
+/** Hypsometric color palette for elevation-based terrain coloring (period-map aesthetic) */
+export const TERRAIN_PALETTE: { elevation: number; color: [number, number, number] }[] = [
+    { elevation: 0, color: [143, 168, 122] },      // #8fa87a — muted olive green (coastal plains)
+    { elevation: 200, color: [176, 184, 136] },     // #b0b888 — yellow-green
+    { elevation: 400, color: [200, 196, 152] },     // #c8c498 — light tan
+    { elevation: 600, color: [212, 197, 160] },     // #d4c5a0 — parchment (matches map base)
+    { elevation: 800, color: [196, 168, 112] },     // #c4a870 — warm tan
+    { elevation: 1200, color: [168, 136, 88] },     // #a88858 — medium brown
+    { elevation: 1800, color: [136, 112, 72] },     // #887048 — dark brown
+    { elevation: 2500, color: [120, 112, 96] },     // #787060 — grey-brown peaks
+];

@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { FACTIONS, type FactionId } from "../data/factions";
 import type { DispatchType } from "../game/state/TroopDispatch";
-import { lerp } from "../utils/math";
 
 /**
  * Visual representation of a troop dispatch moving along an edge.
@@ -15,20 +14,29 @@ export class TroopSprite extends Phaser.GameObjects.Container {
     private countText: Phaser.GameObjects.Text;
     private ambushFlashTimer = 0;
     private dispatchType: DispatchType;
+    /** Full polyline: [from, ...waypoints, to] as screen coords */
+    private pathPoints: [number, number][];
+    /** Cumulative distances along the polyline, normalized to [0..1] */
+    private pathDistances: number[];
 
     constructor(
         scene: Phaser.Scene,
         public readonly dispatchId: number,
         private owner: FactionId,
         troops: number,
-        private fromX: number,
-        private fromY: number,
-        private toX: number,
-        private toY: number,
+        fromX: number,
+        fromY: number,
+        toX: number,
+        toY: number,
         dispatchType: DispatchType = "troops",
+        waypoints: [number, number][] = [],
     ) {
         super(scene, fromX, fromY);
         this.dispatchType = dispatchType;
+
+        // Build full path polyline
+        this.pathPoints = [[fromX, fromY], ...waypoints, [toX, toY]];
+        this.pathDistances = this.computePathDistances();
 
         this.dot = scene.add.graphics();
         this.drawDot(FACTIONS[owner].color, 1);
@@ -46,6 +54,26 @@ export class TroopSprite extends Phaser.GameObjects.Container {
         this.add(this.countText);
 
         scene.add.existing(this);
+    }
+
+    /** Compute cumulative normalized distances along the polyline */
+    private computePathDistances(): number[] {
+        const pts = this.pathPoints;
+        const dists = [0];
+        let total = 0;
+        for (let i = 1; i < pts.length; i++) {
+            const dx = pts[i]![0] - pts[i - 1]![0];
+            const dy = pts[i]![1] - pts[i - 1]![1];
+            total += Math.sqrt(dx * dx + dy * dy);
+            dists.push(total);
+        }
+        // Normalize to [0..1]
+        if (total > 0) {
+            for (let i = 0; i < dists.length; i++) {
+                dists[i] = dists[i]! / total;
+            }
+        }
+        return dists;
     }
 
     /** Draw the dispatch shape based on type */
@@ -84,10 +112,33 @@ export class TroopSprite extends Phaser.GameObjects.Container {
         }
     }
 
-    /** Update position based on progress (0..1) along the edge */
+    /** Update position based on progress (0..1) along the polyline path */
     updateProgress(progress: number): void {
-        this.x = lerp(this.fromX, this.toX, progress);
-        this.y = lerp(this.fromY, this.toY, progress);
+        const t = Math.max(0, Math.min(1, progress));
+
+        // Find which segment we're on
+        const dists = this.pathDistances;
+        const pts = this.pathPoints;
+
+        // Binary-ish search for the segment
+        let segIdx = 0;
+        for (let i = 1; i < dists.length; i++) {
+            if (dists[i]! >= t) {
+                segIdx = i - 1;
+                break;
+            }
+        }
+
+        const segStart = dists[segIdx]!;
+        const segEnd = dists[segIdx + 1] ?? 1;
+        const segLen = segEnd - segStart;
+        const localT = segLen > 0 ? (t - segStart) / segLen : 0;
+
+        const p0 = pts[segIdx]!;
+        const p1 = pts[segIdx + 1] ?? p0;
+
+        this.x = p0[0] + localT * (p1[0] - p0[0]);
+        this.y = p0[1] + localT * (p1[1] - p0[1]);
     }
 
     getOwner(): FactionId {

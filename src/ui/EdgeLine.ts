@@ -16,13 +16,15 @@ import {
 } from "../config/constants";
 
 /**
- * Draws a connection line between two node positions.
+ * Draws a connection line between two node positions,
+ * optionally routed through intermediate waypoints.
  */
 export class EdgeLine {
     private graphics: Phaser.GameObjects.Graphics;
     private _isConstructing = false;
     private _isFogged = false;
     private _isSupplyRoute = false;
+    private waypoints: [number, number][];
 
     constructor(
         scene: Phaser.Scene,
@@ -33,9 +35,11 @@ export class EdgeLine {
         constructing = false,
         public readonly fromId: string = "",
         public readonly toId: string = "",
+        waypoints: [number, number][] = [],
     ) {
         this.graphics = scene.add.graphics();
         this._isConstructing = constructing;
+        this.waypoints = waypoints;
         this.draw();
     }
 
@@ -69,17 +73,11 @@ export class EdgeLine {
             this.drawDashed(EDGE_CONSTRUCTION_COLOR, EDGE_CONSTRUCTION_ALPHA, EDGE_CONSTRUCTION_WIDTH);
         } else if (this._isSupplyRoute) {
             this.graphics.lineStyle(SUPPLY_ROUTE_WIDTH, SUPPLY_ROUTE_COLOR, SUPPLY_ROUTE_ALPHA);
-            this.graphics.beginPath();
-            this.graphics.moveTo(this.fromX, this.fromY);
-            this.graphics.lineTo(this.toX, this.toY);
-            this.graphics.strokePath();
+            this.strokePath();
         } else {
             const alpha = this._isFogged ? FOG_EDGE_ALPHA : EDGE_ALPHA;
             this.graphics.lineStyle(EDGE_WIDTH, EDGE_COLOR, alpha);
-            this.graphics.beginPath();
-            this.graphics.moveTo(this.fromX, this.fromY);
-            this.graphics.lineTo(this.toX, this.toY);
-            this.graphics.strokePath();
+            this.strokePath();
         }
     }
 
@@ -92,10 +90,7 @@ export class EdgeLine {
         this.graphics.clear();
         if (highlighted) {
             this.graphics.lineStyle(EDGE_HIGHLIGHT_WIDTH, EDGE_HIGHLIGHT_COLOR, EDGE_HIGHLIGHT_ALPHA);
-            this.graphics.beginPath();
-            this.graphics.moveTo(this.fromX, this.fromY);
-            this.graphics.lineTo(this.toX, this.toY);
-            this.graphics.strokePath();
+            this.strokePath();
         } else {
             this.draw();
         }
@@ -105,33 +100,68 @@ export class EdgeLine {
         this.graphics.destroy();
     }
 
-    /** Draw a dashed line between from and to */
+    /** Stroke a path through all waypoints between from and to */
+    private strokePath(): void {
+        this.graphics.beginPath();
+        this.graphics.moveTo(this.fromX, this.fromY);
+        for (const [wx, wy] of this.waypoints) {
+            this.graphics.lineTo(wx, wy);
+        }
+        this.graphics.lineTo(this.toX, this.toY);
+        this.graphics.strokePath();
+    }
+
+    /** Draw a dashed line through all waypoints */
     private drawDashed(color: number, alpha: number, width: number): void {
         this.graphics.lineStyle(width, color, alpha);
-        const dx = this.toX - this.fromX;
-        const dy = this.toY - this.fromY;
-        const len = Math.sqrt(dx * dx + dy * dy);
+
+        // Build full point sequence
+        const points: [number, number][] = [
+            [this.fromX, this.fromY],
+            ...this.waypoints,
+            [this.toX, this.toY],
+        ];
+
         const dashLen = 6;
         const gapLen = 4;
         const segLen = dashLen + gapLen;
-        const numSegs = Math.floor(len / segLen);
 
-        const nx = dx / len;
-        const ny = dy / len;
+        // Walk the polyline drawing dashes
+        let accumulated = 0;
+        for (let i = 0; i < points.length - 1; i++) {
+            const [x0, y0] = points[i]!;
+            const [x1, y1] = points[i + 1]!;
+            const dx = x1 - x0;
+            const dy = y1 - y0;
+            const segmentLen = Math.sqrt(dx * dx + dy * dy);
+            if (segmentLen === 0) continue;
 
-        for (let i = 0; i < numSegs; i++) {
-            const startDist = i * segLen;
-            const endDist = Math.min(startDist + dashLen, len);
-            this.graphics.beginPath();
-            this.graphics.moveTo(
-                this.fromX + nx * startDist,
-                this.fromY + ny * startDist,
-            );
-            this.graphics.lineTo(
-                this.fromX + nx * endDist,
-                this.fromY + ny * endDist,
-            );
-            this.graphics.strokePath();
+            const nx = dx / segmentLen;
+            const ny = dy / segmentLen;
+
+            let pos = 0;
+            while (pos < segmentLen) {
+                const cyclePos = (accumulated + pos) % segLen;
+                const isDash = cyclePos < dashLen;
+
+                if (isDash) {
+                    const dashRemaining = dashLen - cyclePos;
+                    const segRemaining = segmentLen - pos;
+                    const drawLen = Math.min(dashRemaining, segRemaining);
+
+                    this.graphics.beginPath();
+                    this.graphics.moveTo(x0 + nx * pos, y0 + ny * pos);
+                    this.graphics.lineTo(x0 + nx * (pos + drawLen), y0 + ny * (pos + drawLen));
+                    this.graphics.strokePath();
+
+                    pos += drawLen;
+                } else {
+                    const gapRemaining = segLen - cyclePos;
+                    const segRemaining = segmentLen - pos;
+                    pos += Math.min(gapRemaining, segRemaining);
+                }
+            }
+            accumulated += segmentLen;
         }
     }
 }
