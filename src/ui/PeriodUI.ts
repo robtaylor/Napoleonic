@@ -320,8 +320,8 @@ export function drawHUDPanel(
 ): void {
     // Scale segments and roughness to panel size
     const perimeter = 2 * (w + h);
-    const segs = Math.max(12, Math.round(perimeter / 12));
-    const roughness = 2.5;
+    const segs = Math.max(20, Math.round(perimeter / 5));
+    const roughness = 2;
     const rand = seededRandom(seed || Math.round(x * 7 + y * 13));
 
     const x0 = x;
