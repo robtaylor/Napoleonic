@@ -66,7 +66,7 @@ export const SUPPLY_ATTRITION_TROOPS = 1;
 export const SUPPLY_SOURCES: Record<string, string[]> = {
     french: ["madrid", "pamplona", "san-sebastian"],
     british: ["lisbon"],
-    spanish: ["seville"],
+    spanish: ["seville", "bilbao"],
 };
 
 /** Allied factions that can share supply routes */

@@ -84,8 +84,8 @@ export class SupplySystem {
             while (queue.length > 0) {
                 const current = queue.shift()!;
                 const node = state.nodes.get(current);
-                if (node && node.owner === factionId) {
-                    // Only mark nodes owned by this faction as supplied
+                if (node && traversable.has(node.owner)) {
+                    // Mark own and allied nodes as supplied
                     node.supplied = true;
                 }
 
@@ -107,15 +107,14 @@ export class SupplySystem {
     private getSupplySources(state: GameState, factionId: FactionId): string[] {
         const staticSources = SUPPLY_SOURCES[factionId] ?? [];
 
-        if (factionId === "british") {
-            // British get any owned port as supply source (naval superiority)
+        if (factionId === "british" || factionId === "spanish") {
+            // British + Spanish get any owned port as supply source (naval supply)
             const ports: string[] = [];
             for (const node of state.nodes.values()) {
-                if (node.owner === "british" && node.type === "port") {
+                if (node.owner === factionId && node.type === "port") {
                     ports.push(node.id);
                 }
             }
-            // Merge static sources + ports, deduplicate
             const all = new Set([...staticSources, ...ports]);
             return [...all];
         }
