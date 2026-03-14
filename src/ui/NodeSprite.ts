@@ -163,13 +163,24 @@ export class NodeSprite extends Phaser.GameObjects.Container {
         this.setAlpha(fogged ? FOG_NODE_ALPHA : 1);
     }
 
+    /** Stroke a highlight outline matching the node type shape */
+    private strokeHighlight(margin: number): void {
+        if (this.nodeDef.type === "fortress") {
+            const s = NODE_RADIUS + 1 + margin;
+            this.circle.strokeRect(-s, -s, s * 2, s * 2);
+        } else {
+            const r = (this.nodeDef.type === "capital" ? NODE_RADIUS + 3 : NODE_RADIUS) + margin;
+            this.circle.strokeCircle(0, 0, r);
+        }
+    }
+
     /** Highlight the node when selected */
     setSelected(selected: boolean): void {
         this.circle.clear();
         this.drawCircle();
         if (selected) {
             this.circle.lineStyle(3, 0xffffff, 1);
-            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+            this.strokeHighlight(3);
         }
     }
 
@@ -177,7 +188,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
     setHighlightTarget(highlighted: boolean): void {
         if (highlighted) {
             this.circle.lineStyle(2, 0x88ff88, 0.8);
-            this.circle.strokeCircle(0, 0, NODE_RADIUS + 2);
+            this.strokeHighlight(2);
         }
     }
 
@@ -185,7 +196,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
     setHighlightRoadTarget(highlighted: boolean): void {
         if (highlighted) {
             this.circle.lineStyle(2, 0xffaa44, 0.9);
-            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+            this.strokeHighlight(3);
         }
     }
 
@@ -193,7 +204,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
     setHighlightGather(highlighted: boolean): void {
         if (highlighted) {
             this.circle.lineStyle(2.5, 0x44dddd, 0.9);
-            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+            this.strokeHighlight(3);
         }
     }
 
@@ -201,7 +212,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
     setHighlightAlliedTransit(highlighted: boolean): void {
         if (highlighted) {
             this.circle.lineStyle(2.5, 0xc9a84c, 0.9);
-            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+            this.strokeHighlight(3);
         }
     }
 
@@ -209,7 +220,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
     setHighlightAttackTarget(highlighted: boolean): void {
         if (highlighted) {
             this.circle.lineStyle(2.5, 0xff4444, 0.9);
-            this.circle.strokeCircle(0, 0, NODE_RADIUS + 3);
+            this.strokeHighlight(3);
         }
     }
 
@@ -281,7 +292,7 @@ export class NodeSprite extends Phaser.GameObjects.Container {
             this.raidFlashTimer -= deltaMs;
             const alpha = Math.max(0, this.raidFlashTimer / 500);
             this.circle.lineStyle(3, 0xffaa00, alpha);
-            this.circle.strokeCircle(0, 0, NODE_RADIUS + 4);
+            this.strokeHighlight(4);
         }
     }
 
@@ -345,25 +356,115 @@ export class NodeSprite extends Phaser.GameObjects.Container {
         const faction = FACTIONS[this._factionId];
         this.circle.clear();
 
-        // Type indicator: slightly different radius for fortresses/capitals
-        const r = this.nodeDef.type === "capital" ? NODE_RADIUS + 2 :
-                  this.nodeDef.type === "fortress" ? NODE_RADIUS + 1 :
-                  NODE_RADIUS;
+        switch (this.nodeDef.type) {
+            case "capital":
+                this.drawCapital(faction.color);
+                break;
+            case "fortress":
+                this.drawFortress(faction.color);
+                break;
+            case "port":
+                this.drawPort(faction.color);
+                break;
+            default:
+                this.drawCity(faction.color);
+                break;
+        }
+    }
 
-        this.circle.fillStyle(faction.color, 0.9);
+    /** Capital: large circle with 5-pointed star emblem */
+    private drawCapital(color: number): void {
+        const r = NODE_RADIUS + 3;
+        // Outer ring
+        this.circle.fillStyle(color, 0.95);
+        this.circle.lineStyle(2.5, 0x000000, 0.7);
+        this.circle.fillCircle(0, 0, r);
+        this.circle.strokeCircle(0, 0, r);
+        // Inner gold ring
+        this.circle.lineStyle(1.5, 0xffd700, 0.6);
+        this.circle.strokeCircle(0, 0, r - 3);
+        // 5-pointed star
+        this.drawStar(0, 0, 5, 6, 3, 0xffd700, 0.8);
+    }
+
+    /** Fortress: square shape with crenellation notches */
+    private drawFortress(color: number): void {
+        const s = NODE_RADIUS + 1; // half-size
+        this.circle.fillStyle(color, 0.95);
+        this.circle.lineStyle(2, 0x000000, 0.7);
+        // Main square body
+        this.circle.fillRect(-s, -s, s * 2, s * 2);
+        this.circle.strokeRect(-s, -s, s * 2, s * 2);
+        // Crenellation notches on top edge
+        const notchW = 4;
+        const notchH = 4;
+        this.circle.fillStyle(color, 0.95);
+        for (let i = 0; i < 3; i++) {
+            const nx = -s + 2 + i * (s * 2 - 4) / 3 + (s * 2 - 4) / 6 - notchW / 2;
+            this.circle.fillRect(nx, -s - notchH, notchW, notchH);
+            this.circle.lineStyle(1.5, 0x000000, 0.7);
+            this.circle.strokeRect(nx, -s - notchH, notchW, notchH);
+        }
+        // Inner cross pattern
+        this.circle.lineStyle(1, 0xffffff, 0.3);
+        this.circle.beginPath();
+        this.circle.moveTo(-s + 3, 0);
+        this.circle.lineTo(s - 3, 0);
+        this.circle.strokePath();
+        this.circle.beginPath();
+        this.circle.moveTo(0, -s + 3);
+        this.circle.lineTo(0, s - 3);
+        this.circle.strokePath();
+    }
+
+    /** Port: circle with small anchor symbol */
+    private drawPort(color: number): void {
+        const r = NODE_RADIUS;
+        this.circle.fillStyle(color, 0.95);
+        this.circle.lineStyle(2, 0x000000, 0.7);
+        this.circle.fillCircle(0, 0, r);
+        this.circle.strokeCircle(0, 0, r);
+        // Anchor symbol (simplified): vertical line + crossbar + curved bottom
+        this.circle.lineStyle(1.5, 0xffffff, 0.5);
+        // Vertical shaft
+        this.circle.beginPath();
+        this.circle.moveTo(0, -4);
+        this.circle.lineTo(0, 5);
+        this.circle.strokePath();
+        // Crossbar
+        this.circle.beginPath();
+        this.circle.moveTo(-4, -1);
+        this.circle.lineTo(4, -1);
+        this.circle.strokePath();
+        // Small ring at top
+        this.circle.strokeCircle(0, -5, 1.5);
+    }
+
+    /** City: simple circle with subtle inner dot */
+    private drawCity(color: number): void {
+        const r = NODE_RADIUS;
+        this.circle.fillStyle(color, 0.9);
         this.circle.lineStyle(2, 0x000000, 0.6);
         this.circle.fillCircle(0, 0, r);
         this.circle.strokeCircle(0, 0, r);
+    }
 
-        // Capital gets a star-like inner mark
-        if (this.nodeDef.type === "capital") {
-            this.circle.fillStyle(0xffffff, 0.3);
-            this.circle.fillCircle(0, 0, 4);
+    /** Draw a filled n-pointed star */
+    private drawStar(cx: number, cy: number, points: number, outerR: number, innerR: number, color: number, alpha: number): void {
+        this.circle.fillStyle(color, alpha);
+        this.circle.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+            const angle = (i * Math.PI) / points - Math.PI / 2;
+            const r = i % 2 === 0 ? outerR : innerR;
+            const x = cx + Math.cos(angle) * r;
+            const y = cy + Math.sin(angle) * r;
+            if (i === 0) {
+                this.circle.moveTo(x, y);
+            } else {
+                this.circle.lineTo(x, y);
+            }
         }
-        // Fortress gets a square inner mark
-        if (this.nodeDef.type === "fortress") {
-            this.circle.lineStyle(1, 0xffffff, 0.4);
-            this.circle.strokeRect(-3, -3, 6, 6);
-        }
+        this.circle.closePath();
+        this.circle.fillPath();
     }
 }

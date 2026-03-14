@@ -120,6 +120,7 @@ export class GameScene extends Phaser.Scene {
         if (borderData) this.mapRenderer.drawBorders(borderData);
         if (riverData) this.mapRenderer.drawRivers(riverData);
         this.mapRenderer.setDepths(0, 1, 2);
+        this.mapRenderer.drawVignette(this);
 
         // Project node positions
         const positions = projectNodes(NODES, this.mapProjection);

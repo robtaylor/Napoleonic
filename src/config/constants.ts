@@ -156,11 +156,11 @@ export const SPANISH_MIN_NODES = 5;
 // === Edge Visuals ===
 
 /** Base edge line color */
-export const EDGE_COLOR = 0x6b5b3e;
+export const EDGE_COLOR = 0x4a3c28;
 /** Base edge line alpha */
-export const EDGE_ALPHA = 0.5;
+export const EDGE_ALPHA = 0.75;
 /** Base edge line width */
-export const EDGE_WIDTH = 2.0;
+export const EDGE_WIDTH = 2.5;
 /** Edge highlight color (dispatch target) */
 export const EDGE_HIGHLIGHT_COLOR = 0x88ff88;
 /** Edge highlight alpha */

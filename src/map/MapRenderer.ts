@@ -232,6 +232,38 @@ export class MapRenderer {
         }
     }
 
+    /** Draw a vignette overlay (dark edges) for aged-paper atmosphere */
+    drawVignette(scene: Phaser.Scene): void {
+        const { width, height } = scene.scale;
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // Radial gradient: transparent center → dark brown edges
+        const cx = width / 2;
+        const cy = height / 2;
+        const innerR = Math.min(width, height) * 0.35;
+        const outerR = Math.max(width, height) * 0.75;
+        const gradient = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+        gradient.addColorStop(0, "rgba(26, 18, 9, 0)");
+        gradient.addColorStop(0.6, "rgba(26, 18, 9, 0.15)");
+        gradient.addColorStop(1, "rgba(26, 18, 9, 0.55)");
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        if (scene.textures.exists("vignette")) {
+            scene.textures.remove("vignette");
+        }
+        scene.textures.addCanvas("vignette", canvas);
+        const vignetteImage = scene.add.image(0, 0, "vignette");
+        vignetteImage.setOrigin(0, 0);
+        vignetteImage.setDepth(100); // On top of everything
+        vignetteImage.setScrollFactor(0); // Fixed to camera (doesn't pan/zoom)
+    }
+
     /** Set depth ordering so land is behind borders and rivers */
     setDepths(landDepth: number, borderDepth: number, riverDepth: number): void {
         this._landGraphics.setDepth(landDepth);
