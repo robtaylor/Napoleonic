@@ -111,8 +111,8 @@ export class GameScene extends Phaser.Scene {
         const elevationData = this.cache.json.get("iberia-elevation") as ElevationData | undefined;
 
         if (landData) {
-            // If we have terrain data, draw land as stroke-only (terrain canvas replaces fill)
-            this.mapRenderer.drawLand(landData, !elevationData);
+            // Always fill land — serves as mask source for terrain + fallback if no elevation data
+            this.mapRenderer.drawLand(landData);
         }
         if (elevationData) {
             this.mapRenderer.drawTerrain(elevationData, this);

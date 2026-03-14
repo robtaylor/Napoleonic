@@ -60,8 +60,8 @@ export class MapRenderer {
         return this._landGraphics;
     }
 
-    /** Draw land polygons — stroke only (terrain canvas replaces the fill) */
-    drawLand(geojson: GeoJSONFeatureCollection, fillLand = true): void {
+    /** Draw land polygons filled with parchment color (also serves as geometry mask source for terrain) */
+    drawLand(geojson: GeoJSONFeatureCollection): void {
         const g = this._landGraphics;
         g.clear();
 
@@ -71,9 +71,7 @@ export class MapRenderer {
                 const projected = this.projectRing(ring);
                 if (projected.length < 3) continue;
 
-                if (fillLand) {
-                    g.fillStyle(MAP_COLORS.land, 1);
-                }
+                g.fillStyle(MAP_COLORS.land, 1);
                 g.lineStyle(1.5, MAP_COLORS.landStroke, 0.8);
 
                 g.beginPath();
@@ -84,9 +82,7 @@ export class MapRenderer {
                     g.lineTo(pt[0], pt[1]);
                 }
                 g.closePath();
-                if (fillLand) {
-                    g.fillPath();
-                }
+                g.fillPath();
                 g.strokePath();
             }
         }
