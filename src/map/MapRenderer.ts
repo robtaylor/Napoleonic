@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import type { MapProjection } from "./MapProjection";
-import { TERRAIN_PALETTE } from "../config/constants";
 
 /** GeoJSON types we handle */
 interface GeoJSONFeatureCollection {
@@ -20,12 +19,14 @@ type GeoJSONGeometry =
     | { type: "LineString"; coordinates: number[][] }
     | { type: "MultiLineString"; coordinates: number[][][] };
 
-/** Elevation grid data loaded from iberia-elevation.json */
-export interface ElevationData {
-    cols: number;
-    rows: number;
-    bounds: { minLng: number; maxLng: number; minLat: number; maxLat: number };
-    data: number[];
+/** Metadata for positioning the terrain bitmap (Web Mercator tile bounds) */
+export interface TerrainMeta {
+    width: number;
+    height: number;
+    minLng: number;
+    maxLng: number;
+    minLat: number;
+    maxLat: number;
 }
 
 const MAP_COLORS = {
@@ -38,7 +39,7 @@ const MAP_COLORS = {
 
 /**
  * Renders GeoJSON map data as Phaser Graphics objects.
- * Draws coastlines, country borders, rivers, and hypsometric terrain.
+ * Draws coastlines, country borders, rivers, and topographic terrain.
  */
 export class MapRenderer {
     private _landGraphics: Phaser.GameObjects.Graphics;
@@ -88,114 +89,99 @@ export class MapRenderer {
         }
     }
 
-    /** Draw topographic terrain coloring from elevation data */
-    drawTerrain(elevationData: ElevationData, scene: Phaser.Scene): void {
+    /**
+     * Draw terrain from a pre-rendered topographic PNG.
+     * Re-projects from Web Mercator (tile source) to the game's conic conformal projection
+     * by sampling the PNG at each screen pixel.
+     */
+    drawTerrain(scene: Phaser.Scene, meta: TerrainMeta): void {
         const { width, height } = scene.scale;
 
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+        // Get raw pixel data from the loaded terrain texture
+        const source = scene.textures.get("iberia-terrain").getSourceImage() as HTMLImageElement;
+        const srcCanvas = document.createElement("canvas");
+        srcCanvas.width = meta.width;
+        srcCanvas.height = meta.height;
+        const srcCtx = srcCanvas.getContext("2d");
+        if (!srcCtx) return;
+        srcCtx.drawImage(source, 0, 0);
+        const srcData = srcCtx.getImageData(0, 0, meta.width, meta.height).data;
 
-        const imageData = ctx.createImageData(width, height);
-        const pixels = imageData.data;
+        // Build output canvas at screen resolution
+        const outCanvas = document.createElement("canvas");
+        outCanvas.width = width;
+        outCanvas.height = height;
+        const outCtx = outCanvas.getContext("2d");
+        if (!outCtx) return;
 
-        const { cols, rows, bounds, data } = elevationData;
+        const outImage = outCtx.createImageData(width, height);
+        const outPixels = outImage.data;
+
+        // Pre-compute Web Mercator Y limits for the terrain bounds
+        const mercYMax = this.latToMercY(meta.maxLat);
+        const mercYMin = this.latToMercY(meta.minLat);
 
         for (let py = 0; py < height; py++) {
             for (let px = 0; px < width; px++) {
-                // Unproject screen pixel to lat/lng
                 const latlng = this.projection.unproject(px, py);
                 if (!latlng) continue;
 
                 const [lng, lat] = latlng;
-
-                // Skip if outside elevation bounds
-                if (lng < bounds.minLng || lng > bounds.maxLng || lat < bounds.minLat || lat > bounds.maxLat) {
+                if (lng < meta.minLng || lng > meta.maxLng || lat < meta.minLat || lat > meta.maxLat) {
                     continue;
                 }
 
-                // Sample elevation with bilinear interpolation
-                const gridCol = ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * (cols - 1);
-                const gridRow = ((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat)) * (rows - 1);
+                // Map to source pixel using Web Mercator (matches the tile layout)
+                const srcX = ((lng - meta.minLng) / (meta.maxLng - meta.minLng)) * (meta.width - 1);
+                const mercY = this.latToMercY(lat);
+                const srcY = ((mercYMax - mercY) / (mercYMax - mercYMin)) * (meta.height - 1);
 
-                const elevation = this.sampleElevation(data, cols, rows, gridRow, gridCol);
+                // Bilinear sample from source
+                const x0 = Math.floor(srcX);
+                const y0 = Math.floor(srcY);
+                const x1 = Math.min(x0 + 1, meta.width - 1);
+                const y1 = Math.min(y0 + 1, meta.height - 1);
+                const fx = srcX - x0;
+                const fy = srcY - y0;
 
-                // Map elevation to color
-                const [r, g, b] = this.elevationToColor(elevation);
+                const i00 = (y0 * meta.width + x0) * 4;
+                const i10 = (y0 * meta.width + x1) * 4;
+                const i01 = (y1 * meta.width + x0) * 4;
+                const i11 = (y1 * meta.width + x1) * 4;
 
                 const idx = (py * width + px) * 4;
-                pixels[idx] = r;
-                pixels[idx + 1] = g;
-                pixels[idx + 2] = b;
-                pixels[idx + 3] = 255;
+                for (let c = 0; c < 3; c++) {
+                    outPixels[idx + c] = Math.round(
+                        srcData[i00 + c]! * (1 - fx) * (1 - fy) +
+                        srcData[i10 + c]! * fx * (1 - fy) +
+                        srcData[i01 + c]! * (1 - fx) * fy +
+                        srcData[i11 + c]! * fx * fy,
+                    );
+                }
+                outPixels[idx + 3] = 255;
             }
         }
 
-        ctx.putImageData(imageData, 0, 0);
+        outCtx.putImageData(outImage, 0, 0);
 
-        // Remove existing terrain texture if re-drawing
-        if (scene.textures.exists("terrain")) {
-            scene.textures.remove("terrain");
+        // Create Phaser texture from reprojected canvas
+        if (scene.textures.exists("terrain-reprojected")) {
+            scene.textures.remove("terrain-reprojected");
         }
-
-        // Create Phaser texture from canvas
-        scene.textures.addCanvas("terrain", canvas);
-        this.terrainImage = scene.add.image(0, 0, "terrain");
+        scene.textures.addCanvas("terrain-reprojected", outCanvas);
+        this.terrainImage = scene.add.image(0, 0, "terrain-reprojected");
         this.terrainImage.setOrigin(0, 0);
         this.terrainImage.setDepth(0);
 
-        // Apply geometry mask from land polygons — terrain only visible on land
+        // Apply geometry mask from land polygons
         const mask = this._landGraphics.createGeometryMask();
         this.terrainImage.setMask(mask);
     }
 
-    /** Bilinear interpolation sampling of the elevation grid */
-    private sampleElevation(data: number[], cols: number, rows: number, row: number, col: number): number {
-        const r0 = Math.floor(row);
-        const c0 = Math.floor(col);
-        const r1 = Math.min(r0 + 1, rows - 1);
-        const c1 = Math.min(c0 + 1, cols - 1);
-        const fr = row - r0;
-        const fc = col - c0;
-
-        const v00 = data[r0 * cols + c0] ?? 0;
-        const v10 = data[r1 * cols + c0] ?? 0;
-        const v01 = data[r0 * cols + c1] ?? 0;
-        const v11 = data[r1 * cols + c1] ?? 0;
-
-        return v00 * (1 - fr) * (1 - fc) + v10 * fr * (1 - fc) + v01 * (1 - fr) * fc + v11 * fr * fc;
-    }
-
-    /** Map elevation (meters) to RGB using hypsometric palette */
-    private elevationToColor(elevation: number): [number, number, number] {
-        const palette = TERRAIN_PALETTE;
-
-        // Clamp to palette range
-        if (elevation <= palette[0]!.elevation) {
-            return palette[0]!.color;
-        }
-        const last = palette[palette.length - 1]!;
-        if (elevation >= last.elevation) {
-            return last.color;
-        }
-
-        // Find bracketing stops and interpolate
-        for (let i = 0; i < palette.length - 1; i++) {
-            const lo = palette[i]!;
-            const hi = palette[i + 1]!;
-            if (elevation >= lo.elevation && elevation <= hi.elevation) {
-                const t = (elevation - lo.elevation) / (hi.elevation - lo.elevation);
-                return [
-                    Math.round(lo.color[0] + t * (hi.color[0] - lo.color[0])),
-                    Math.round(lo.color[1] + t * (hi.color[1] - lo.color[1])),
-                    Math.round(lo.color[2] + t * (hi.color[2] - lo.color[2])),
-                ];
-            }
-        }
-
-        return palette[0]!.color;
+    /** Convert latitude to Web Mercator Y (normalized) */
+    private latToMercY(lat: number): number {
+        const latRad = (lat * Math.PI) / 180;
+        return Math.log(Math.tan(latRad) + 1 / Math.cos(latRad));
     }
 
     /** Draw country borders as dashed-style lines */

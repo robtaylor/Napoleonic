@@ -10,6 +10,8 @@ export class BootScene extends Phaser.Scene {
         this.load.json("iberia-borders", "assets/maps/iberia-borders.json");
         this.load.json("iberia-rivers", "assets/maps/iberia-rivers.json");
         this.load.json("iberia-elevation", "assets/maps/iberia-elevation.json");
+        this.load.json("iberia-terrain-meta", "assets/maps/iberia-terrain-meta.json");
+        this.load.image("iberia-terrain", "assets/maps/iberia-terrain.png");
 
         const { width, height } = this.scale;
         const barWidth = 320;

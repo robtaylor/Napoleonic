@@ -230,16 +230,3 @@ export const IBERIA_BOUNDS = {
     maxLat: 44.0,
 } as const;
 
-// === Terrain Palette ===
-
-/** Traditional topographic color palette for elevation-based terrain coloring */
-export const TERRAIN_PALETTE: { elevation: number; color: [number, number, number] }[] = [
-    { elevation: 0, color: [90, 165, 40] },        // #5AA528 — bright green (coastal lowlands)
-    { elevation: 150, color: [145, 185, 60] },      // #91B93C — yellow-green
-    { elevation: 300, color: [175, 200, 80] },      // #AFC850 — light yellow-green
-    { elevation: 500, color: [255, 215, 135] },     // #FFD787 — pale yellow/cream
-    { elevation: 700, color: [245, 170, 90] },      // #F5AA5A — light orange/tan
-    { elevation: 1000, color: [175, 120, 70] },     // #AF7846 — medium brown
-    { elevation: 1500, color: [125, 85, 40] },      // #7D5528 — dark brown
-    { elevation: 2500, color: [110, 70, 25] },      // #6E4619 — darkest brown (peaks)
-];

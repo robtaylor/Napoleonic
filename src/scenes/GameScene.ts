@@ -19,7 +19,7 @@ import { NODES } from "../data/nodes";
 import { EDGES } from "../data/edges";
 import { SCENARIOS } from "../data/scenarios";
 import { MapProjection } from "../map/MapProjection";
-import { MapRenderer, type ElevationData } from "../map/MapRenderer";
+import { MapRenderer, type TerrainMeta } from "../map/MapRenderer";
 import { projectNodes, type NodePosition } from "../map/NodePlacement";
 import { GameState } from "../game/state/GameState";
 import { TroopGenerationSystem } from "../game/systems/TroopGenerationSystem";
@@ -108,14 +108,14 @@ export class GameScene extends Phaser.Scene {
         const borderData = this.cache.json.get("iberia-borders");
         const riverData = this.cache.json.get("iberia-rivers");
 
-        const elevationData = this.cache.json.get("iberia-elevation") as ElevationData | undefined;
+        const terrainMeta = this.cache.json.get("iberia-terrain-meta") as TerrainMeta | undefined;
 
         if (landData) {
             // Always fill land — serves as mask source for terrain + fallback if no elevation data
             this.mapRenderer.drawLand(landData);
         }
-        if (elevationData) {
-            this.mapRenderer.drawTerrain(elevationData, this);
+        if (terrainMeta) {
+            this.mapRenderer.drawTerrain(this, terrainMeta);
         }
         if (borderData) this.mapRenderer.drawBorders(borderData);
         if (riverData) this.mapRenderer.drawRivers(riverData);
