@@ -4,12 +4,16 @@ import type { VictoryReason } from "../game/systems/VictorySystem";
 import {
     drawParchmentPanel,
     drawHorizontalRule,
+    drawDoubleRuleBox,
     drawCornerOrnaments,
+    drawFactionJack,
+    INK,
+    INK_LIGHT,
+    INK_FAINT,
+    FONT_TITLE,
+    FONT_HEADING,
+    FONT_BODY,
 } from "../ui/PeriodUI";
-
-const FONT_TITLE = "'Cinzel Decorative', Georgia, serif";
-const FONT_HEADING = "'Cinzel', Georgia, serif";
-const FONT_BODY = "'Cinzel', Georgia, serif";
 
 interface VictoryData {
     winner: FactionId;
@@ -65,89 +69,89 @@ export class VictoryScene extends Phaser.Scene {
         const cx = width / 2;
         const faction = FACTIONS[data.winner];
 
-        // Semi-transparent backdrop
-        this.add.rectangle(cx, height / 2, width, height, 0x000000, 0.7);
+        // Semi-transparent dark backdrop to dim the map
+        this.add.rectangle(cx, height / 2, width, height, 0x000000, 0.5);
 
-        // Decorative graphics (drawn once)
         const gfx = this.add.graphics();
 
         // Central parchment panel
-        const panelW = 520;
-        const panelH = 280;
+        const panelW = 500;
+        const panelH = 270;
         const panelX = cx - panelW / 2;
         const panelY = height / 2 - panelH / 2 - 20;
-        drawParchmentPanel(gfx, panelX, panelY, panelW, panelH, 0.9);
-        drawCornerOrnaments(gfx, panelX, panelY, panelW, panelH, 16);
+        drawParchmentPanel(gfx, panelX, panelY, panelW, panelH, 0.95);
+        drawCornerOrnaments(gfx, panelX + 6, panelY + 6, panelW - 12, panelH - 12, 14);
 
-        // Horizontal rule above VICTORY text
-        drawHorizontalRule(gfx, cx, panelY + 30, panelW - 80, true);
+        drawHorizontalRule(gfx, cx, panelY + 28, panelW - 60, true);
 
+        // VICTORY title
         this.add
-            .text(cx, panelY + 60, "VICTORY", {
+            .text(cx, panelY + 58, "VICTORY", {
                 fontFamily: FONT_TITLE,
-                fontSize: "56px",
-                color: faction.textColor,
-                stroke: "#3d2b1f",
-                strokeThickness: 3,
+                fontSize: "48px",
+                color: INK,
             })
             .setOrigin(0.5);
 
-        // Horizontal rule below VICTORY text
-        drawHorizontalRule(gfx, cx, panelY + 100, panelW - 80, true);
+        drawHorizontalRule(gfx, cx, panelY + 92, panelW - 60, true);
+
+        // Faction jack + "X wins!"
+        const winY = panelY + 120;
+        drawFactionJack(gfx, cx - 80, winY - 6, data.winner, 16, 12);
 
         this.add
-            .text(cx, panelY + 130, `${faction.name} wins!`, {
+            .text(cx, winY, `${faction.name} wins!`, {
                 fontFamily: FONT_HEADING,
-                fontSize: "28px",
-                color: "#5a4a32",
+                fontSize: "22px",
+                color: INK,
             })
             .setOrigin(0.5);
 
+        // Reason text
         const reasonText = VICTORY_TEXT[data.reason]?.[data.winner] || "Victory achieved!";
-
         this.add
-            .text(cx, panelY + 170, reasonText, {
+            .text(cx, panelY + 165, reasonText, {
                 fontFamily: FONT_BODY,
-                fontSize: "16px",
-                color: "#5a4a32",
+                fontSize: "14px",
+                color: INK_LIGHT,
                 wordWrap: { width: panelW - 60 },
                 align: "center",
             })
             .setOrigin(0.5);
 
-        // Play again button with parchment panel
-        const btnY = panelY + panelH + 20;
-        const btnPanelW = 240;
-        const btnPanelH = 50;
-        drawParchmentPanel(gfx, cx - btnPanelW / 2, btnY, btnPanelW, btnPanelH, 0.85);
-        drawCornerOrnaments(gfx, cx - btnPanelW / 2, btnY, btnPanelW, btnPanelH, 10);
+        // Play again button — double-rule box
+        const btnY = panelY + panelH + 16;
+        const btnBoxW = 180;
+        const btnBoxH = 40;
+        drawParchmentPanel(gfx, cx - btnBoxW / 2, btnY, btnBoxW, btnBoxH, 0.9);
+        drawDoubleRuleBox(gfx, cx - btnBoxW / 2 + 4, btnY + 4, btnBoxW - 8, btnBoxH - 8);
 
         const btn = this.add
-            .text(cx, btnY + btnPanelH / 2, "Play Again", {
+            .text(cx, btnY + btnBoxH / 2, "Play Again", {
                 fontFamily: FONT_HEADING,
-                fontSize: "28px",
-                color: "#3d2b1f",
+                fontSize: "22px",
+                color: INK,
             })
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true });
 
         btn.on("pointerover", () => {
-            btn.setColor("#ddaa22");
+            btn.setColor(INK_FAINT);
             this.tweens.add({
                 targets: btn,
                 scaleX: 1.05,
                 scaleY: 1.05,
-                duration: 120,
+                duration: 100,
                 ease: "Sine.easeOut",
             });
         });
         btn.on("pointerout", () => {
-            btn.setColor("#3d2b1f");
+            btn.setColor(INK);
             this.tweens.add({
                 targets: btn,
                 scaleX: 1,
                 scaleY: 1,
-                duration: 120,
+                duration: 100,
                 ease: "Sine.easeOut",
             });
         });

@@ -3,10 +3,17 @@ import type { FactionId } from "../data/factions";
 import { SCENARIOS } from "../data/scenarios";
 import type { GameMode } from "../game/state/GameState";
 import {
-    drawParchmentPanel,
     drawHorizontalRule,
+    drawDoubleRuleBox,
     drawCornerOrnaments,
     drawStarburst,
+    drawFactionJack,
+    INK,
+    INK_LIGHT,
+    INK_FAINT,
+    FONT_TITLE,
+    FONT_HEADING,
+    FONT_BODY,
 } from "../ui/PeriodUI";
 
 export type AIDifficulty = "easy" | "medium" | "hard";
@@ -17,11 +24,6 @@ export interface GameConfig {
     aiDifficulty: AIDifficulty;
     gameMode: GameMode;
 }
-
-/** Font families — Cinzel loaded via Google Fonts in index.html */
-const FONT_TITLE = "'Cinzel Decorative', Georgia, serif";
-const FONT_HEADING = "'Cinzel', Georgia, serif";
-const FONT_BODY = "'Cinzel', Georgia, serif";
 
 export class MenuScene extends Phaser.Scene {
     private selectedFaction: FactionId = "british";
@@ -39,60 +41,57 @@ export class MenuScene extends Phaser.Scene {
         const cx = width / 2;
         const gfx = this.add.graphics();
 
-        // ===== Title — no panel, just the text with breathing room =====
+        // ===== Outer page border — like a printed document =====
+        drawCornerOrnaments(gfx, 30, 12, width - 60, height - 24, 18);
+
+        // ===== Title =====
         this.add
-            .text(cx, 52, "NAPOLIONIC", {
+            .text(cx, 50, "NAPOLIONIC", {
                 fontFamily: FONT_TITLE,
-                fontSize: "58px",
-                color: "#ddaa22",
-                stroke: "#1a1208",
-                strokeThickness: 4,
+                fontSize: "52px",
+                color: INK,
             })
             .setOrigin(0.5);
 
+        // Double-rule box around the subtitle (like "CAVALERIE" in the ref)
+        const subW = 280;
+        const subH = 32;
+        drawDoubleRuleBox(gfx, cx - subW / 2, 94, subW, subH);
+
         this.add
-            .text(cx, 112, "The Peninsular War", {
+            .text(cx, 110, "The Peninsular War", {
                 fontFamily: FONT_HEADING,
-                fontSize: "20px",
-                color: "#c4a86a",
+                fontSize: "16px",
+                color: INK,
             })
             .setOrigin(0.5);
 
         this.add
             .text(cx, 137, "Iberia, 1808\u20131814", {
                 fontFamily: FONT_BODY,
-                fontSize: "12px",
-                color: "#8b7d5e",
+                fontSize: "11px",
+                color: INK_FAINT,
             })
             .setOrigin(0.5);
 
-        // Starburst dividers flanking the tagline
-        drawStarburst(gfx, cx - 80, 137, 5, 6);
-        drawStarburst(gfx, cx + 80, 137, 5, 6);
+        drawStarburst(gfx, cx - 72, 137, 4, 6);
+        drawStarburst(gfx, cx + 72, 137, 4, 6);
 
-        // Diamond rule below title block
-        drawHorizontalRule(gfx, cx, 158, 400, true);
+        drawHorizontalRule(gfx, cx, 156, 460, true);
 
-        // ===== Options panel — wide enough for 3 scenarios =====
-        const optPanelW = 700;
-        const optPanelH = 290;
-        const optPanelX = cx - optPanelW / 2;
-        const optPanelY = 172;
-        drawParchmentPanel(gfx, optPanelX, optPanelY, optPanelW, optPanelH, 0.15);
-
-        // === Faction selection ===
+        // ===== Faction selection =====
         this.add
-            .text(cx, 188, "Your Faction", {
+            .text(cx, 174, "Your Faction", {
                 fontFamily: FONT_HEADING,
-                fontSize: "14px",
-                color: "#a0956a",
+                fontSize: "13px",
+                color: INK_LIGHT,
             })
             .setOrigin(0.5);
 
-        const factions: { id: FactionId; label: string; color: string }[] = [
-            { id: "british", label: "British-Portuguese", color: "#dd4444" },
-            { id: "french", label: "French Empire", color: "#4488dd" },
-            { id: "spanish", label: "Spanish Resistance", color: "#ddaa22" },
+        const factions: { id: FactionId; label: string }[] = [
+            { id: "british", label: "British-Portuguese" },
+            { id: "french", label: "French Empire" },
+            { id: "spanish", label: "Spanish Resistance" },
         ];
 
         const factionBtns: Phaser.GameObjects.Text[] = [];
@@ -100,13 +99,18 @@ export class MenuScene extends Phaser.Scene {
         const factionStartX = cx - factionSpacing;
         for (let i = 0; i < factions.length; i++) {
             const f = factions[i]!;
+            const bx = factionStartX + i * factionSpacing;
+
+            // Faction color jack (left of text)
+            drawFactionJack(gfx, bx - 52, 199, f.id, 12, 10);
+
             const btn = this.add
-                .text(factionStartX + i * factionSpacing, 212, f.label, {
+                .text(bx, 204, f.label, {
                     fontFamily: FONT_BODY,
-                    fontSize: "15px",
-                    color: f.color,
-                    backgroundColor: f.id === this.selectedFaction ? "#3d2b1f" : undefined,
-                    padding: { x: 10, y: 5 },
+                    fontSize: "14px",
+                    color: INK,
+                    backgroundColor: f.id === this.selectedFaction ? "#c4b48a" : undefined,
+                    padding: { x: 8, y: 4 },
                 })
                 .setOrigin(0.5)
                 .setInteractive({ useHandCursor: true });
@@ -118,14 +122,14 @@ export class MenuScene extends Phaser.Scene {
             factionBtns.push(btn);
         }
 
-        drawHorizontalRule(gfx, cx, 242, 350, false);
+        drawHorizontalRule(gfx, cx, 232, 400, false);
 
-        // === AI Difficulty ===
+        // ===== AI Difficulty =====
         this.add
-            .text(cx, 258, "Difficulty", {
+            .text(cx, 248, "Difficulty", {
                 fontFamily: FONT_HEADING,
-                fontSize: "14px",
-                color: "#a0956a",
+                fontSize: "13px",
+                color: INK_LIGHT,
             })
             .setOrigin(0.5);
 
@@ -141,12 +145,12 @@ export class MenuScene extends Phaser.Scene {
         for (let i = 0; i < difficulties.length; i++) {
             const d = difficulties[i]!;
             const btn = this.add
-                .text(diffStartX + i * diffSpacing, 282, d.label, {
+                .text(diffStartX + i * diffSpacing, 272, d.label, {
                     fontFamily: FONT_BODY,
-                    fontSize: "15px",
-                    color: "#d4c5a0",
-                    backgroundColor: d.id === this.selectedDifficulty ? "#3d2b1f" : undefined,
-                    padding: { x: 12, y: 5 },
+                    fontSize: "14px",
+                    color: INK,
+                    backgroundColor: d.id === this.selectedDifficulty ? "#c4b48a" : undefined,
+                    padding: { x: 12, y: 4 },
                 })
                 .setOrigin(0.5)
                 .setInteractive({ useHandCursor: true });
@@ -155,21 +159,21 @@ export class MenuScene extends Phaser.Scene {
                 this.selectedDifficulty = d.id;
                 for (let j = 0; j < diffBtns.length; j++) {
                     diffBtns[j]!.setBackgroundColor(
-                        difficulties[j]!.id === d.id ? "#3d2b1f" : "",
+                        difficulties[j]!.id === d.id ? "#c4b48a" : "",
                     );
                 }
             });
             diffBtns.push(btn);
         }
 
-        drawHorizontalRule(gfx, cx, 312, 350, false);
+        drawHorizontalRule(gfx, cx, 302, 400, false);
 
-        // === Game Mode ===
+        // ===== Game Length =====
         this.add
-            .text(cx, 328, "Game Length", {
+            .text(cx, 318, "Game Length", {
                 fontFamily: FONT_HEADING,
-                fontSize: "14px",
-                color: "#a0956a",
+                fontSize: "13px",
+                color: INK_LIGHT,
             })
             .setOrigin(0.5);
 
@@ -184,12 +188,12 @@ export class MenuScene extends Phaser.Scene {
         for (let i = 0; i < modes.length; i++) {
             const m = modes[i]!;
             const btn = this.add
-                .text(modeStartX + i * modeSpacing, 352, m.label, {
+                .text(modeStartX + i * modeSpacing, 342, m.label, {
                     fontFamily: FONT_BODY,
-                    fontSize: "15px",
-                    color: "#d4c5a0",
-                    backgroundColor: m.id === this.selectedMode ? "#3d2b1f" : undefined,
-                    padding: { x: 12, y: 5 },
+                    fontSize: "14px",
+                    color: INK,
+                    backgroundColor: m.id === this.selectedMode ? "#c4b48a" : undefined,
+                    padding: { x: 12, y: 4 },
                 })
                 .setOrigin(0.5)
                 .setInteractive({ useHandCursor: true });
@@ -198,21 +202,21 @@ export class MenuScene extends Phaser.Scene {
                 this.selectedMode = m.id;
                 for (let j = 0; j < modeBtns.length; j++) {
                     modeBtns[j]!.setBackgroundColor(
-                        modes[j]!.id === m.id ? "#3d2b1f" : "",
+                        modes[j]!.id === m.id ? "#c4b48a" : "",
                     );
                 }
             });
             modeBtns.push(btn);
         }
 
-        drawHorizontalRule(gfx, cx, 382, 350, false);
+        drawHorizontalRule(gfx, cx, 372, 400, false);
 
-        // === Scenario ===
+        // ===== Scenario =====
         this.add
-            .text(cx, 398, "Scenario", {
+            .text(cx, 388, "Scenario", {
                 fontFamily: FONT_HEADING,
-                fontSize: "14px",
-                color: "#a0956a",
+                fontSize: "13px",
+                color: INK_LIGHT,
             })
             .setOrigin(0.5);
 
@@ -223,11 +227,11 @@ export class MenuScene extends Phaser.Scene {
         for (let i = 0; i < scenCount; i++) {
             const s = SCENARIOS[i]!;
             const btn = this.add
-                .text(scenStartX + i * scenSpacing, 422, `${s.year}: ${s.name}`, {
+                .text(scenStartX + i * scenSpacing, 412, `${s.year}: ${s.name}`, {
                     fontFamily: FONT_BODY,
                     fontSize: "13px",
-                    color: "#d4c5a0",
-                    backgroundColor: i === this.selectedScenario ? "#3d2b1f" : undefined,
+                    color: INK,
+                    backgroundColor: i === this.selectedScenario ? "#c4b48a" : undefined,
                     padding: { x: 8, y: 4 },
                 })
                 .setOrigin(0.5)
@@ -237,19 +241,19 @@ export class MenuScene extends Phaser.Scene {
                 this.selectedScenario = i;
                 for (let j = 0; j < scenBtns.length; j++) {
                     scenBtns[j]!.setBackgroundColor(
-                        j === i ? "#3d2b1f" : "",
+                        j === i ? "#c4b48a" : "",
                     );
                 }
             });
             scenBtns.push(btn);
         }
 
-        // === Multiplayer toggle ===
+        // ===== Multiplayer toggle =====
         const mpBtn = this.add
-            .text(cx, 455, "[ Local Multiplayer: OFF ]", {
+            .text(cx, 452, "[ Local Multiplayer: OFF ]", {
                 fontFamily: FONT_BODY,
-                fontSize: "13px",
-                color: "#666666",
+                fontSize: "12px",
+                color: INK_FAINT,
             })
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true });
@@ -259,39 +263,37 @@ export class MenuScene extends Phaser.Scene {
             mpBtn.setText(
                 `[ Local Multiplayer: ${this.isMultiplayer ? "ON \u2014 All Human" : "OFF"} ]`,
             );
-            mpBtn.setColor(this.isMultiplayer ? "#ddaa22" : "#666666");
+            mpBtn.setColor(this.isMultiplayer ? INK : INK_FAINT);
         });
 
-        // ===== Start button =====
-        const startPanelW = 240;
-        const startPanelH = 56;
-        const startY = 490;
-        drawParchmentPanel(gfx, cx - startPanelW / 2, startY, startPanelW, startPanelH, 0.22);
-        drawCornerOrnaments(gfx, cx - startPanelW / 2, startY, startPanelW, startPanelH, 10);
+        // ===== Start button — double-rule boxed like "CAVALERIE" =====
+        drawHorizontalRule(gfx, cx, 478, 460, true);
+
+        const startBoxW = 200;
+        const startBoxH = 48;
+        drawDoubleRuleBox(gfx, cx - startBoxW / 2, 496, startBoxW, startBoxH);
 
         const startBtn = this.add
-            .text(cx, startY + startPanelH / 2, "START", {
+            .text(cx, 520, "START", {
                 fontFamily: FONT_HEADING,
-                fontSize: "36px",
-                color: "#ddaa22",
-                stroke: "#1a1208",
-                strokeThickness: 2,
+                fontSize: "30px",
+                color: INK,
             })
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true });
 
         startBtn.on("pointerover", () => {
-            startBtn.setColor("#ffffff");
+            startBtn.setColor(INK_LIGHT);
             this.tweens.add({
                 targets: startBtn,
-                scaleX: 1.06,
-                scaleY: 1.06,
+                scaleX: 1.05,
+                scaleY: 1.05,
                 duration: 100,
                 ease: "Sine.easeOut",
             });
         });
         startBtn.on("pointerout", () => {
-            startBtn.setColor("#ddaa22");
+            startBtn.setColor(INK);
             this.tweens.add({
                 targets: startBtn,
                 scaleX: 1,
@@ -312,47 +314,46 @@ export class MenuScene extends Phaser.Scene {
             this.scene.start("GameScene", config);
         });
 
-        // ===== Controls help =====
-        drawHorizontalRule(gfx, cx, 565, 360, false);
+        // ===== Controls =====
+        drawHorizontalRule(gfx, cx, 558, 460, false);
 
         this.add
-            .text(cx, 585, "Controls: Click node \u2192 select, click neighbor \u2192 dispatch troops", {
+            .text(cx, 578, "Controls: Click node \u2192 select, click neighbor \u2192 dispatch troops", {
                 fontFamily: FONT_BODY,
                 fontSize: "11px",
-                color: "#7a6c50",
+                color: INK_FAINT,
             })
             .setOrigin(0.5);
 
         this.add
             .text(
                 cx,
-                603,
+                596,
                 "E = Fortify  |  R = Build road  |  Dbl-click = Scout  |  Right-drag = Pan  |  Wheel = Zoom",
                 {
                     fontFamily: FONT_BODY,
                     fontSize: "11px",
-                    color: "#7a6c50",
+                    color: INK_FAINT,
                 },
             )
             .setOrigin(0.5);
 
-        // Subtle version / ESC hint at very bottom
         this.add
-            .text(cx, height - 12, "ESC = Pause Menu", {
+            .text(cx, height - 14, "ESC = Pause Menu", {
                 fontFamily: FONT_BODY,
                 fontSize: "10px",
-                color: "#5a4a32",
+                color: INK_FAINT,
             })
             .setOrigin(0.5);
     }
 
     private refreshSelections(
         btns: Phaser.GameObjects.Text[],
-        factions: { id: FactionId; label: string; color: string }[],
+        factions: { id: FactionId; label: string }[],
     ): void {
         for (let i = 0; i < btns.length; i++) {
             btns[i]!.setBackgroundColor(
-                factions[i]!.id === this.selectedFaction ? "#3d2b1f" : "",
+                factions[i]!.id === this.selectedFaction ? "#c4b48a" : "",
             );
         }
     }

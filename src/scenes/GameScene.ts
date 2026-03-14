@@ -44,6 +44,10 @@ import {
     drawParchmentPanel,
     drawHorizontalRule,
     drawCornerOrnaments,
+    INK,
+    INK_FAINT,
+    FONT_HEADING,
+    FONT_BODY,
 } from "../ui/PeriodUI";
 
 export class GameScene extends Phaser.Scene {
@@ -697,51 +701,49 @@ export class GameScene extends Phaser.Scene {
         container.setScrollFactor(0);
 
         // Dim backdrop
-        const backdrop = this.add.rectangle(cx, cy, width, height, 0x000000, 0.5);
+        const backdrop = this.add.rectangle(cx, cy, width, height, 0x000000, 0.4);
         backdrop.setScrollFactor(0);
         container.add(backdrop);
 
         // Parchment panel
-        const panelW = 340;
-        const panelH = 220;
+        const panelW = 300;
+        const panelH = 200;
         const panelX = cx - panelW / 2;
         const panelY = cy - panelH / 2;
         const gfx = this.add.graphics();
         gfx.setScrollFactor(0);
-        drawParchmentPanel(gfx, panelX, panelY, panelW, panelH, 0.92);
-        drawCornerOrnaments(gfx, panelX, panelY, panelW, panelH, 14);
-        drawHorizontalRule(gfx, cx, panelY + 55, panelW - 60, true);
+        drawParchmentPanel(gfx, panelX, panelY, panelW, panelH, 0.95);
+        drawCornerOrnaments(gfx, panelX + 6, panelY + 6, panelW - 12, panelH - 12, 12);
+        drawHorizontalRule(gfx, cx, panelY + 52, panelW - 50, true);
         container.add(gfx);
 
         // "PAUSED" title
-        const title = this.add.text(cx, panelY + 32, "PAUSED", {
-            fontFamily: "'Cinzel', Georgia, serif",
-            fontSize: "36px",
-            color: "#3d2b1f",
-            stroke: "#d4c5a0",
-            strokeThickness: 1,
+        const title = this.add.text(cx, panelY + 30, "PAUSED", {
+            fontFamily: FONT_HEADING,
+            fontSize: "28px",
+            color: INK,
         }).setOrigin(0.5).setScrollFactor(0);
         container.add(title);
 
         // Resume button
-        const resumeBtn = this.add.text(cx, cy, "Resume", {
-            fontFamily: "'Cinzel', Georgia, serif",
-            fontSize: "26px",
-            color: "#3d2b1f",
+        const resumeBtn = this.add.text(cx, cy + 4, "Resume", {
+            fontFamily: FONT_HEADING,
+            fontSize: "22px",
+            color: INK,
         }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
-        resumeBtn.on("pointerover", () => resumeBtn.setColor("#ddaa22"));
-        resumeBtn.on("pointerout", () => resumeBtn.setColor("#3d2b1f"));
+        resumeBtn.on("pointerover", () => resumeBtn.setColor(INK_FAINT));
+        resumeBtn.on("pointerout", () => resumeBtn.setColor(INK));
         resumeBtn.on("pointerdown", () => this.closePauseMenu());
         container.add(resumeBtn);
 
         // Return to Menu button
-        const menuBtn = this.add.text(cx, cy + 50, "Return to Menu", {
-            fontFamily: "'Cinzel', Georgia, serif",
-            fontSize: "26px",
-            color: "#3d2b1f",
+        const menuBtn = this.add.text(cx, cy + 42, "Return to Menu", {
+            fontFamily: FONT_HEADING,
+            fontSize: "22px",
+            color: INK,
         }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
-        menuBtn.on("pointerover", () => menuBtn.setColor("#dd4444"));
-        menuBtn.on("pointerout", () => menuBtn.setColor("#3d2b1f"));
+        menuBtn.on("pointerover", () => menuBtn.setColor(INK_FAINT));
+        menuBtn.on("pointerout", () => menuBtn.setColor(INK));
         menuBtn.on("pointerdown", () => {
             this.closePauseMenu();
             this.scene.stop("HUDScene");
@@ -750,10 +752,10 @@ export class GameScene extends Phaser.Scene {
         container.add(menuBtn);
 
         // Hint text
-        const hint = this.add.text(cx, panelY + panelH - 22, "Press ESC to resume", {
-            fontFamily: "'Cinzel', Georgia, serif",
-            fontSize: "12px",
-            color: "#8b7d5e",
+        const hint = this.add.text(cx, panelY + panelH - 18, "Press ESC to resume", {
+            fontFamily: FONT_BODY,
+            fontSize: "10px",
+            color: INK_FAINT,
         }).setOrigin(0.5).setScrollFactor(0);
         container.add(hint);
 

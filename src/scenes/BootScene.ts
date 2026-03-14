@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { drawCornerOrnaments, UI_COLORS } from "../ui/PeriodUI";
+import { drawCornerOrnaments, drawHorizontalRule, UI_COLORS, INK, FONT_TITLE } from "../ui/PeriodUI";
 
 export class BootScene extends Phaser.Scene {
     constructor() {
@@ -16,51 +16,45 @@ export class BootScene extends Phaser.Scene {
 
         const { width, height } = this.scale;
         const barWidth = 320;
-        const barHeight = 20;
+        const barHeight = 16;
         const x = (width - barWidth) / 2;
-        const y = height / 2;
+        const y = height / 2 + 10;
 
-        // Title text above loading bar
+        // Title text
         this.add
-            .text(width / 2, y - 40, "NAPOLIONIC", {
-                fontFamily: "'Cinzel Decorative', Georgia, serif",
-                fontSize: "32px",
-                color: "#ddaa22",
-                stroke: "#000000",
-                strokeThickness: 2,
+            .text(width / 2, y - 36, "NAPOLIONIC", {
+                fontFamily: FONT_TITLE,
+                fontSize: "28px",
+                color: INK,
             })
             .setOrigin(0.5);
 
-        // Corner ornaments around loading area
+        // Decorative corner ornaments
         const gfx = this.add.graphics();
-        const ornMargin = 20;
-        drawCornerOrnaments(
-            gfx,
-            x - ornMargin,
-            y - ornMargin,
-            barWidth + ornMargin * 2,
-            barHeight + ornMargin * 2,
-            10,
-        );
+        const m = 16;
+        drawCornerOrnaments(gfx, x - m, y - m, barWidth + m * 2, barHeight + m * 2, 8);
 
         // Loading bar background
         const bg = this.add.graphics();
-        bg.fillStyle(UI_COLORS.darkBrown, 1);
+        bg.fillStyle(UI_COLORS.parchmentDark, 1);
         bg.fillRect(x, y, barWidth, barHeight);
-        bg.lineStyle(1, UI_COLORS.panelBorder, 0.6);
+        bg.lineStyle(1, UI_COLORS.ink, 0.3);
         bg.strokeRect(x, y, barWidth, barHeight);
 
         const bar = this.add.graphics();
         this.load.on("progress", (value: number) => {
             bar.clear();
-            bar.fillStyle(UI_COLORS.goldAccent, 1);
-            bar.fillRect(x, y, barWidth * value, barHeight);
+            bar.fillStyle(UI_COLORS.ink, 0.6);
+            bar.fillRect(x + 1, y + 1, (barWidth - 2) * value, barHeight - 2);
         });
 
         this.load.on("complete", () => {
             bar.destroy();
             bg.destroy();
         });
+
+        // Thin rule below
+        drawHorizontalRule(gfx, width / 2, y + barHeight + m, barWidth, false);
     }
 
     create(): void {

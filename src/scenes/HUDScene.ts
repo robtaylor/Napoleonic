@@ -2,7 +2,15 @@ import Phaser from "phaser";
 import { GAME_DURATION_S } from "../config/constants";
 import { FACTIONS, type FactionId } from "../data/factions";
 import type { GameState } from "../game/state/GameState";
-import { UI_COLORS } from "../ui/PeriodUI";
+import {
+    UI_COLORS,
+    drawFactionJack,
+    INK,
+    INK_LIGHT,
+    INK_FAINT,
+    FONT_HEADING,
+    FONT_BODY,
+} from "../ui/PeriodUI";
 
 const FACTION_OBJECTIVES: Record<Exclude<FactionId, "neutral">, string> = {
     french: "Hold 20+ cities for 60s",
@@ -11,8 +19,8 @@ const FACTION_OBJECTIVES: Record<Exclude<FactionId, "neutral">, string> = {
 };
 
 /**
- * HUD overlay scene - displays faction scores, game timer, objectives,
- * and guerrilla activity.
+ * HUD overlay scene — parchment-styled panels with ink text
+ * and faction color jacks for identification.
  */
 export class HUDScene extends Phaser.Scene {
     private gameState!: GameState;
@@ -40,67 +48,62 @@ export class HUDScene extends Phaser.Scene {
         panels.setDepth(99);
 
         // Scoreboard panel — top-left
-        const sbW = 290;
+        const sbW = 280;
         const sbH = 82;
-        panels.fillStyle(0x2b1d0e, 0.7);
-        panels.fillRoundedRect(4, 4, sbW, sbH, 6);
-        panels.lineStyle(1, UI_COLORS.panelBorder, 0.5);
-        panels.strokeRoundedRect(4, 4, sbW, sbH, 6);
-        // Gold accent line along top
-        panels.lineStyle(2, UI_COLORS.goldDark, 0.4);
-        panels.beginPath();
-        panels.moveTo(8, 6);
-        panels.lineTo(sbW, 6);
-        panels.strokePath();
+        panels.fillStyle(UI_COLORS.parchmentDark, 0.88);
+        panels.fillRoundedRect(4, 4, sbW, sbH, 4);
+        panels.lineStyle(1, UI_COLORS.ink, 0.3);
+        panels.strokeRoundedRect(4, 4, sbW, sbH, 4);
+        panels.lineStyle(0.5, UI_COLORS.ink, 0.15);
+        panels.strokeRoundedRect(7, 7, sbW - 6, sbH - 6, 3);
 
         // Timer / objective panel — top-right
-        const trW = 220;
-        const trH = 52;
+        const trW = 200;
+        const trH = 50;
         const trX = width - trW - 4;
-        panels.fillStyle(0x2b1d0e, 0.7);
-        panels.fillRoundedRect(trX, 4, trW, trH, 6);
-        panels.lineStyle(1, UI_COLORS.panelBorder, 0.5);
-        panels.strokeRoundedRect(trX, 4, trW, trH, 6);
-        panels.lineStyle(2, UI_COLORS.goldDark, 0.4);
-        panels.beginPath();
-        panels.moveTo(trX + 4, 6);
-        panels.lineTo(trX + trW - 4, 6);
-        panels.strokePath();
+        panels.fillStyle(UI_COLORS.parchmentDark, 0.88);
+        panels.fillRoundedRect(trX, 4, trW, trH, 4);
+        panels.lineStyle(1, UI_COLORS.ink, 0.3);
+        panels.strokeRoundedRect(trX, 4, trW, trH, 4);
+        panels.lineStyle(0.5, UI_COLORS.ink, 0.15);
+        panels.strokeRoundedRect(trX + 3, 7, trW - 6, trH - 6, 3);
 
         // Controls legend panel — bottom-right
-        const clW = 310;
-        const clH = 160;
+        const clW = 290;
+        const clH = 150;
         const clX = width - clW - 4;
         const clY = this.scale.height - clH - 4;
-        panels.fillStyle(0x2b1d0e, 0.75);
-        panels.fillRoundedRect(clX, clY, clW, clH, 6);
-        panels.lineStyle(1, UI_COLORS.panelBorder, 0.5);
-        panels.strokeRoundedRect(clX, clY, clW, clH, 6);
+        panels.fillStyle(UI_COLORS.parchmentDark, 0.88);
+        panels.fillRoundedRect(clX, clY, clW, clH, 4);
+        panels.lineStyle(1, UI_COLORS.ink, 0.3);
+        panels.strokeRoundedRect(clX, clY, clW, clH, 4);
+        panels.lineStyle(0.5, UI_COLORS.ink, 0.15);
+        panels.strokeRoundedRect(clX + 3, clY + 3, clW - 6, clH - 6, 3);
 
-        // "CONTROLS" header in gold
+        // "CONTROLS" header
         this.add
             .text(width - clW / 2 - 4, clY + 6, "CONTROLS", {
-                fontFamily: "'Cinzel', Georgia, serif",
-                fontSize: "10px",
-                color: "#b8891a",
+                fontFamily: FONT_HEADING,
+                fontSize: "9px",
+                color: INK_FAINT,
                 letterSpacing: 3,
             })
             .setOrigin(0.5, 0)
             .setScrollFactor(0)
             .setDepth(100);
 
-        // Faction scoreboard at top-left
+        // Faction scoreboard with jacks
         const factionIds: FactionId[] = ["french", "british", "spanish"];
-        let y = 12;
+        let y = 14;
         for (const fid of factionIds) {
-            const faction = FACTIONS[fid];
+            // Draw faction jack
+            drawFactionJack(panels, 12, y + 2, fid, 10, 10);
+
             const text = this.add
-                .text(12, y, "", {
-                    fontFamily: "'Cinzel', Georgia, serif",
-                    fontSize: "14px",
-                    color: faction.textColor,
-                    stroke: "#000000",
-                    strokeThickness: 2,
+                .text(28, y, "", {
+                    fontFamily: FONT_BODY,
+                    fontSize: "13px",
+                    color: INK,
                 })
                 .setScrollFactor(0)
                 .setDepth(100);
@@ -111,11 +114,9 @@ export class HUDScene extends Phaser.Scene {
         // Timer at top-right
         this.timerText = this.add
             .text(width - 12, 12, "", {
-                fontFamily: "'Cinzel', Georgia, serif",
+                fontFamily: FONT_HEADING,
                 fontSize: "16px",
-                color: "#d4c5a0",
-                stroke: "#000000",
-                strokeThickness: 2,
+                color: INK,
             })
             .setOrigin(1, 0)
             .setScrollFactor(0)
@@ -123,12 +124,10 @@ export class HUDScene extends Phaser.Scene {
 
         // Objective text below timer
         this.objectiveText = this.add
-            .text(width - 12, 34, "", {
-                fontFamily: "'Cinzel', Georgia, serif",
-                fontSize: "11px",
-                color: "#a0956a",
-                stroke: "#000000",
-                strokeThickness: 1,
+            .text(width - 12, 32, "", {
+                fontFamily: FONT_BODY,
+                fontSize: "10px",
+                color: INK_LIGHT,
             })
             .setOrigin(1, 0)
             .setScrollFactor(0)
@@ -137,10 +136,10 @@ export class HUDScene extends Phaser.Scene {
         // Guerrilla activity indicator at bottom-left
         this.guerrillaText = this.add
             .text(12, this.scale.height - 24, "", {
-                fontFamily: "'Cinzel', Georgia, serif",
+                fontFamily: FONT_BODY,
                 fontSize: "12px",
-                color: "#ddaa22",
-                stroke: "#000000",
+                color: INK,
+                stroke: "#e8daba",
                 strokeThickness: 2,
             })
             .setScrollFactor(0)
@@ -158,11 +157,9 @@ export class HUDScene extends Phaser.Scene {
         ];
         this.add
             .text(width - 12, this.scale.height - 12, keyLines.join("\n"), {
-                fontFamily: "'Cinzel', Georgia, serif",
-                fontSize: "13px",
-                color: "#a0956a",
-                stroke: "#000000",
-                strokeThickness: 2,
+                fontFamily: FONT_BODY,
+                fontSize: "12px",
+                color: INK_LIGHT,
                 lineSpacing: 3,
                 align: "right",
             })
@@ -197,7 +194,6 @@ export class HUDScene extends Phaser.Scene {
                 `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`,
             );
         } else {
-            // Long mode: show elapsed time (up-counter)
             const elapsed = this.gameState.elapsedTime;
             const min = Math.floor(elapsed / 60);
             const sec = Math.floor(elapsed % 60);
