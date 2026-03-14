@@ -13,9 +13,9 @@ export const UI_COLORS = {
     /** Subtle tint for hover/selection highlights */
     parchmentLight: 0xf0e6d0,
     /** Dark ink for rules and borders */
-    ink: 0x2b1d0e,
+    ink: 0x1a1008,
     /** Slightly lighter ink for secondary text */
-    inkLight: 0x5a4a32,
+    inkLight: 0x3d2e1a,
     /** Ruled line color */
     rule: 0x8b7d5e,
     /** Faded rule for subtle dividers */
@@ -25,9 +25,9 @@ export const UI_COLORS = {
 } as const;
 
 /** Hex color strings matching UI_COLORS for Phaser text */
-export const INK = "#2b1d0e";
-export const INK_LIGHT = "#5a4a32";
-export const INK_FAINT = "#8b7d5e";
+export const INK = "#1a1008";
+export const INK_LIGHT = "#3d2e1a";
+export const INK_FAINT = "#6b5d45";
 
 /** Faction uniform colors for jacks/swatches */
 export const FACTION_JACK_COLORS: Record<string, number> = {
