@@ -484,16 +484,28 @@ export class GameScene extends Phaser.Scene {
         this.updateNodeSprite(fromId);
     }
 
+    /** Check if a faction is friendly to the human player (own faction or ally) */
+    private isFriendlyFaction(factionId: FactionId): boolean {
+        const humanFactions = this.config.humanFactions;
+        if (humanFactions.includes(factionId)) return true;
+        for (const hFaction of humanFactions) {
+            const allies = SUPPLY_ALLIES[hFaction] ?? [];
+            if (allies.includes(factionId)) return true;
+        }
+        return false;
+    }
+
     /** Check if a node is visible (scouted) to the human player */
     private isNodeScouted(nodeId: string): boolean {
         const nodeState = this.gameState.nodes.get(nodeId);
         if (!nodeState) return false;
 
-        const humanFactions = this.config.humanFactions;
-        if (humanFactions.includes(nodeState.owner) || nodeState.owner === "neutral") {
+        // Own faction, allied faction, or neutral — always visible
+        if (this.isFriendlyFaction(nodeState.owner) || nodeState.owner === "neutral") {
             return true;
         }
 
+        const humanFactions = this.config.humanFactions;
         for (const hFaction of humanFactions) {
             const scoutExpiry = nodeState.scoutedBy[hFaction];
             if (scoutExpiry !== undefined && scoutExpiry > this.gameState.elapsedTime) {
@@ -503,7 +515,7 @@ export class GameScene extends Phaser.Scene {
             if (neighbors) {
                 for (const nid of neighbors) {
                     const neighbor = this.gameState.nodes.get(nid);
-                    if (neighbor && neighbor.owner === hFaction) {
+                    if (neighbor && (neighbor.owner === hFaction || this.isFriendlyFaction(neighbor.owner))) {
                         return true;
                     }
                 }
@@ -669,8 +681,8 @@ export class GameScene extends Phaser.Scene {
                     if (nodeDef && (nodeDef.type === "capital" || nodeDef.type === "fortress")) {
                         this.cameras.main.shake(CAMERA_SHAKE_DURATION_MS, CAMERA_SHAKE_INTENSITY);
                     }
-                } else if (dispatch.owner === prevOwner) {
-                    // Reinforcement: friendly troops arrived at own node
+                } else if (dispatch.owner === prevOwner || (SUPPLY_ALLIES[dispatch.owner] ?? []).includes(prevOwner)) {
+                    // Reinforcement: friendly or allied troops arrived
                     nodeSprite.triggerReinforcementPulse();
                 } else {
                     // Defense: attack was repelled
@@ -716,13 +728,12 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        // Update threat indicators: scan dispatches heading toward human-owned nodes
+        // Update threat indicators: scan dispatches heading toward human/allied nodes
         const incomingThreats = new Map<string, number>();
-        const humanFactions = this.config.humanFactions;
         for (const dispatch of this.gameState.dispatches) {
             if (dispatch.progress >= THREAT_PROGRESS_THRESHOLD) {
                 const targetNode = this.gameState.nodes.get(dispatch.toNodeId);
-                if (targetNode && humanFactions.includes(targetNode.owner) && !humanFactions.includes(dispatch.owner)) {
+                if (targetNode && this.isFriendlyFaction(targetNode.owner) && !this.isFriendlyFaction(dispatch.owner)) {
                     incomingThreats.set(dispatch.toNodeId, (incomingThreats.get(dispatch.toNodeId) ?? 0) + dispatch.troops);
                 }
             }
@@ -749,8 +760,8 @@ export class GameScene extends Phaser.Scene {
                 const fromNode = this.gameState.nodes.get(edge.fromId);
                 const toNode = this.gameState.nodes.get(edge.toId);
                 const isSupplyRoute = fromNode && toNode
-                    && humanFactions.includes(fromNode.owner)
-                    && fromNode.owner === toNode.owner
+                    && this.isFriendlyFaction(fromNode.owner)
+                    && this.isFriendlyFaction(toNode.owner)
                     && fromNode.supplied && toNode.supplied;
                 edge.setSupplyRoute(!!isSupplyRoute);
             }
