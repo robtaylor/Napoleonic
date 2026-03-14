@@ -23,8 +23,8 @@ const IBERIA_BOUNDS = {
     maxLat: 44.0,
 };
 
-const COLS = 150;
-const ROWS = 120;
+const COLS = 450;
+const ROWS = 360;
 
 // ─── Edges (mirrored from src/data/edges.ts) ───
 
@@ -453,8 +453,10 @@ function main() {
     const data = generateElevationGrid();
 
     // Print some stats
-    const maxElev = Math.max(...data);
-    const avgElev = Math.round(data.reduce((a, b) => a + b, 0) / data.length);
+    let maxElev = 0;
+    let sumElev = 0;
+    for (const v of data) { maxElev = Math.max(maxElev, v); sumElev += v; }
+    const avgElev = Math.round(sumElev / data.length);
     console.log(`  Max elevation: ${maxElev}m, Average: ${avgElev}m`);
 
     // Write elevation JSON
