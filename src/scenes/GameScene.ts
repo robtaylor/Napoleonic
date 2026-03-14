@@ -715,7 +715,7 @@ export class GameScene extends Phaser.Scene {
 
         // "PAUSED" title
         const title = this.add.text(cx, panelY + 32, "PAUSED", {
-            fontFamily: "Georgia, serif",
+            fontFamily: "'Cinzel', Georgia, serif",
             fontSize: "36px",
             color: "#3d2b1f",
             stroke: "#d4c5a0",
@@ -725,7 +725,7 @@ export class GameScene extends Phaser.Scene {
 
         // Resume button
         const resumeBtn = this.add.text(cx, cy, "Resume", {
-            fontFamily: "Georgia, serif",
+            fontFamily: "'Cinzel', Georgia, serif",
             fontSize: "26px",
             color: "#3d2b1f",
         }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
@@ -736,7 +736,7 @@ export class GameScene extends Phaser.Scene {
 
         // Return to Menu button
         const menuBtn = this.add.text(cx, cy + 50, "Return to Menu", {
-            fontFamily: "Georgia, serif",
+            fontFamily: "'Cinzel', Georgia, serif",
             fontSize: "26px",
             color: "#3d2b1f",
         }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
@@ -751,7 +751,7 @@ export class GameScene extends Phaser.Scene {
 
         // Hint text
         const hint = this.add.text(cx, panelY + panelH - 22, "Press ESC to resume", {
-            fontFamily: "Georgia, serif",
+            fontFamily: "'Cinzel', Georgia, serif",
             fontSize: "12px",
             color: "#8b7d5e",
         }).setOrigin(0.5).setScrollFactor(0);

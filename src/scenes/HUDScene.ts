@@ -80,7 +80,7 @@ export class HUDScene extends Phaser.Scene {
         // "CONTROLS" header in gold
         this.add
             .text(width - clW / 2 - 4, clY + 6, "CONTROLS", {
-                fontFamily: "Georgia, serif",
+                fontFamily: "'Cinzel', Georgia, serif",
                 fontSize: "10px",
                 color: "#b8891a",
                 letterSpacing: 3,
@@ -96,7 +96,7 @@ export class HUDScene extends Phaser.Scene {
             const faction = FACTIONS[fid];
             const text = this.add
                 .text(12, y, "", {
-                    fontFamily: "Georgia, serif",
+                    fontFamily: "'Cinzel', Georgia, serif",
                     fontSize: "14px",
                     color: faction.textColor,
                     stroke: "#000000",
@@ -111,7 +111,7 @@ export class HUDScene extends Phaser.Scene {
         // Timer at top-right
         this.timerText = this.add
             .text(width - 12, 12, "", {
-                fontFamily: "Georgia, serif",
+                fontFamily: "'Cinzel', Georgia, serif",
                 fontSize: "16px",
                 color: "#d4c5a0",
                 stroke: "#000000",
@@ -124,7 +124,7 @@ export class HUDScene extends Phaser.Scene {
         // Objective text below timer
         this.objectiveText = this.add
             .text(width - 12, 34, "", {
-                fontFamily: "Georgia, serif",
+                fontFamily: "'Cinzel', Georgia, serif",
                 fontSize: "11px",
                 color: "#a0956a",
                 stroke: "#000000",
@@ -137,7 +137,7 @@ export class HUDScene extends Phaser.Scene {
         // Guerrilla activity indicator at bottom-left
         this.guerrillaText = this.add
             .text(12, this.scale.height - 24, "", {
-                fontFamily: "Georgia, serif",
+                fontFamily: "'Cinzel', Georgia, serif",
                 fontSize: "12px",
                 color: "#ddaa22",
                 stroke: "#000000",
@@ -158,7 +158,7 @@ export class HUDScene extends Phaser.Scene {
         ];
         this.add
             .text(width - 12, this.scale.height - 12, keyLines.join("\n"), {
-                fontFamily: "Georgia, serif",
+                fontFamily: "'Cinzel', Georgia, serif",
                 fontSize: "13px",
                 color: "#a0956a",
                 stroke: "#000000",

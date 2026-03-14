@@ -7,6 +7,10 @@ import {
     drawCornerOrnaments,
 } from "../ui/PeriodUI";
 
+const FONT_TITLE = "'Cinzel Decorative', Georgia, serif";
+const FONT_HEADING = "'Cinzel', Georgia, serif";
+const FONT_BODY = "'Cinzel', Georgia, serif";
+
 interface VictoryData {
     winner: FactionId;
     reason: VictoryReason;
@@ -80,7 +84,7 @@ export class VictoryScene extends Phaser.Scene {
 
         this.add
             .text(cx, panelY + 60, "VICTORY", {
-                fontFamily: "Georgia, serif",
+                fontFamily: FONT_TITLE,
                 fontSize: "56px",
                 color: faction.textColor,
                 stroke: "#3d2b1f",
@@ -93,7 +97,7 @@ export class VictoryScene extends Phaser.Scene {
 
         this.add
             .text(cx, panelY + 130, `${faction.name} wins!`, {
-                fontFamily: "Georgia, serif",
+                fontFamily: FONT_HEADING,
                 fontSize: "28px",
                 color: "#5a4a32",
             })
@@ -103,7 +107,7 @@ export class VictoryScene extends Phaser.Scene {
 
         this.add
             .text(cx, panelY + 170, reasonText, {
-                fontFamily: "Georgia, serif",
+                fontFamily: FONT_BODY,
                 fontSize: "16px",
                 color: "#5a4a32",
                 wordWrap: { width: panelW - 60 },
@@ -120,7 +124,7 @@ export class VictoryScene extends Phaser.Scene {
 
         const btn = this.add
             .text(cx, btnY + btnPanelH / 2, "Play Again", {
-                fontFamily: "Georgia, serif",
+                fontFamily: FONT_HEADING,
                 fontSize: "28px",
                 color: "#3d2b1f",
             })

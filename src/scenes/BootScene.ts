@@ -23,7 +23,7 @@ export class BootScene extends Phaser.Scene {
         // Title text above loading bar
         this.add
             .text(width / 2, y - 40, "NAPOLIONIC", {
-                fontFamily: "Georgia, serif",
+                fontFamily: "'Cinzel Decorative', Georgia, serif",
                 fontSize: "32px",
                 color: "#ddaa22",
                 stroke: "#000000",
