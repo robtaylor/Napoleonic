@@ -72,10 +72,18 @@ export class EdgeLine {
         if (this._isConstructing) {
             this.drawDashed(EDGE_CONSTRUCTION_COLOR, EDGE_CONSTRUCTION_ALPHA, EDGE_CONSTRUCTION_WIDTH);
         } else if (this._isSupplyRoute) {
+            // Dark outline for contrast against terrain
+            this.graphics.lineStyle(SUPPLY_ROUTE_WIDTH + 2, 0x1a1209, 0.3);
+            this.strokePath();
             this.graphics.lineStyle(SUPPLY_ROUTE_WIDTH, SUPPLY_ROUTE_COLOR, SUPPLY_ROUTE_ALPHA);
             this.strokePath();
         } else {
             const alpha = this._isFogged ? FOG_EDGE_ALPHA : EDGE_ALPHA;
+            // Dark outline for contrast against terrain
+            if (!this._isFogged) {
+                this.graphics.lineStyle(EDGE_WIDTH + 2, 0x1a1209, 0.3);
+                this.strokePath();
+            }
             this.graphics.lineStyle(EDGE_WIDTH, EDGE_COLOR, alpha);
             this.strokePath();
         }
@@ -89,6 +97,9 @@ export class EdgeLine {
     setHighlight(highlighted: boolean): void {
         this.graphics.clear();
         if (highlighted) {
+            // Dark outline for contrast
+            this.graphics.lineStyle(EDGE_HIGHLIGHT_WIDTH + 2, 0x1a1209, 0.3);
+            this.strokePath();
             this.graphics.lineStyle(EDGE_HIGHLIGHT_WIDTH, EDGE_HIGHLIGHT_COLOR, EDGE_HIGHLIGHT_ALPHA);
             this.strokePath();
         } else {
