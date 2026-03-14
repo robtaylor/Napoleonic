@@ -168,6 +168,14 @@ export class SelectionManager {
         if (!this.isPointerDown || this.gatherChain.length === 0) return;
         if (this.gatherChain.includes(nodeId)) return; // already in chain
 
+        // Don't extend past an enemy terminal node
+        if (this.getNodeOwner && this.isFactionFriendly) {
+            const lastOwner = this.getNodeOwner(this.gatherChain[this.gatherChain.length - 1]!);
+            if (lastOwner && lastOwner !== "neutral" && !this.isFactionFriendly(lastOwner)) {
+                return; // chain already ends at enemy — no further extension
+            }
+        }
+
         // Check: the hovered node must be adjacent to ANY node in the chain
         let adjacentToChain = false;
         for (const chainNodeId of this.gatherChain) {
@@ -178,14 +186,21 @@ export class SelectionManager {
         }
         if (!adjacentToChain) return;
 
-        // Check: must be owned by the same faction or a friendly (allied) faction
+        // Must be owned by same faction, allied faction, or enemy (as attack target)
         if (!this.getNodeOwner) return;
-        const startOwner = this.getNodeOwner(this.gatherChain[0]!);
         const hoverOwner = this.getNodeOwner(nodeId);
-        if (!startOwner || !hoverOwner) return;
+        if (!hoverOwner || hoverOwner === "neutral") return;
+
+        // Own faction and allied factions can be transited; enemy allowed as terminal
+        const startOwner = this.getNodeOwner(this.gatherChain[0]!);
+        if (!startOwner) return;
         if (hoverOwner !== startOwner) {
-            // Allow allied factions through
-            if (!this.isFactionFriendly || !this.isFactionFriendly(hoverOwner)) return;
+            const isFriendly = this.isFactionFriendly && this.isFactionFriendly(hoverOwner);
+            if (!isFriendly) {
+                // Enemy node — only allow adjacent to the LAST chain node (must be the tip)
+                const lastInChain = this.gatherChain[this.gatherChain.length - 1]!;
+                if (!this.getNeighbors(lastInChain).has(nodeId)) return;
+            }
         }
 
         // Add to chain

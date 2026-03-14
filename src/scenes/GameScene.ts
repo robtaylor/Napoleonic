@@ -261,11 +261,12 @@ export class GameScene extends Phaser.Scene {
 
         const playerFaction = firstNode.owner;
 
-        // Count allied (non-own-faction) hops and deduct supply cost from origin
+        // Count allied transit hops (not own faction, not the enemy destination)
+        // and deduct supply cost from origin
         let alliedHops = 0;
         for (const nodeId of fullChain) {
             const node = this.gameState.nodes.get(nodeId);
-            if (node && node.owner !== playerFaction) {
+            if (node && node.owner !== playerFaction && this.isFriendlyFaction(node.owner)) {
                 alliedHops++;
             }
         }
@@ -273,12 +274,9 @@ export class GameScene extends Phaser.Scene {
             firstNode.supply = Math.max(0, firstNode.supply - alliedHops * ALLIED_TRANSIT_SUPPLY_COST);
         }
 
-        // Dispatch only from own-faction nodes; skip allied transit nodes
+        // Dispatch each hop — allied nodes cascade troops through to destination
         for (let i = 0; i < fullChain.length - 1; i++) {
-            const sourceNode = this.gameState.nodes.get(fullChain[i]!);
-            if (sourceNode && sourceNode.owner === playerFaction) {
-                this.executeDispatch(fullChain[i]!, fullChain[i + 1]!);
-            }
+            this.executeDispatch(fullChain[i]!, fullChain[i + 1]!);
         }
     }
 
