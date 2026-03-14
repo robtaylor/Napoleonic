@@ -40,6 +40,11 @@ import { HardAI } from "../game/ai/HardAI";
 import type { FactionId } from "../data/factions";
 import type { DispatchType } from "../game/state/TroopDispatch";
 import { EDGE_WAYPOINTS } from "../data/edge-waypoints";
+import {
+    drawParchmentPanel,
+    drawHorizontalRule,
+    drawCornerOrnaments,
+} from "../ui/PeriodUI";
 
 export class GameScene extends Phaser.Scene {
     private config: GameConfig = {
@@ -73,6 +78,10 @@ export class GameScene extends Phaser.Scene {
 
     // Supply route update throttle
     private supplyRouteTimer = 0;
+
+    // Pause menu state
+    private paused = false;
+    private pauseOverlay: Phaser.GameObjects.Container | null = null;
 
     // Camera drag state
     private isDragging = false;
@@ -235,9 +244,15 @@ export class GameScene extends Phaser.Scene {
             return this.isFriendlyFaction(fid as FactionId);
         };
 
-        // Keyboard input for fortification and road building
+        // Keyboard input for fortification, road building, and pause
         this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
-            this.selectionManager.handleKeyPress(event.key);
+            if (event.key === "Escape") {
+                this.togglePauseMenu();
+                return;
+            }
+            if (!this.paused) {
+                this.selectionManager.handleKeyPress(event.key);
+            }
         });
 
         // Camera
@@ -661,8 +676,101 @@ export class GameScene extends Phaser.Scene {
         this.game.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     }
 
+    private togglePauseMenu(): void {
+        if (this.paused) {
+            this.closePauseMenu();
+        } else {
+            this.openPauseMenu();
+        }
+    }
+
+    private openPauseMenu(): void {
+        if (this.paused) return;
+        this.paused = true;
+
+        const { width, height } = this.scale;
+        const cx = width / 2;
+        const cy = height / 2;
+
+        const container = this.add.container(0, 0);
+        container.setDepth(200);
+        container.setScrollFactor(0);
+
+        // Dim backdrop
+        const backdrop = this.add.rectangle(cx, cy, width, height, 0x000000, 0.5);
+        backdrop.setScrollFactor(0);
+        container.add(backdrop);
+
+        // Parchment panel
+        const panelW = 340;
+        const panelH = 220;
+        const panelX = cx - panelW / 2;
+        const panelY = cy - panelH / 2;
+        const gfx = this.add.graphics();
+        gfx.setScrollFactor(0);
+        drawParchmentPanel(gfx, panelX, panelY, panelW, panelH, 0.92);
+        drawCornerOrnaments(gfx, panelX, panelY, panelW, panelH, 14);
+        drawHorizontalRule(gfx, cx, panelY + 55, panelW - 60, true);
+        container.add(gfx);
+
+        // "PAUSED" title
+        const title = this.add.text(cx, panelY + 32, "PAUSED", {
+            fontFamily: "Georgia, serif",
+            fontSize: "36px",
+            color: "#3d2b1f",
+            stroke: "#d4c5a0",
+            strokeThickness: 1,
+        }).setOrigin(0.5).setScrollFactor(0);
+        container.add(title);
+
+        // Resume button
+        const resumeBtn = this.add.text(cx, cy, "Resume", {
+            fontFamily: "Georgia, serif",
+            fontSize: "26px",
+            color: "#3d2b1f",
+        }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
+        resumeBtn.on("pointerover", () => resumeBtn.setColor("#ddaa22"));
+        resumeBtn.on("pointerout", () => resumeBtn.setColor("#3d2b1f"));
+        resumeBtn.on("pointerdown", () => this.closePauseMenu());
+        container.add(resumeBtn);
+
+        // Return to Menu button
+        const menuBtn = this.add.text(cx, cy + 50, "Return to Menu", {
+            fontFamily: "Georgia, serif",
+            fontSize: "26px",
+            color: "#3d2b1f",
+        }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
+        menuBtn.on("pointerover", () => menuBtn.setColor("#dd4444"));
+        menuBtn.on("pointerout", () => menuBtn.setColor("#3d2b1f"));
+        menuBtn.on("pointerdown", () => {
+            this.closePauseMenu();
+            this.scene.stop("HUDScene");
+            this.scene.start("MenuScene");
+        });
+        container.add(menuBtn);
+
+        // Hint text
+        const hint = this.add.text(cx, panelY + panelH - 22, "Press ESC to resume", {
+            fontFamily: "Georgia, serif",
+            fontSize: "12px",
+            color: "#8b7d5e",
+        }).setOrigin(0.5).setScrollFactor(0);
+        container.add(hint);
+
+        this.pauseOverlay = container;
+    }
+
+    private closePauseMenu(): void {
+        if (!this.paused) return;
+        this.paused = false;
+        if (this.pauseOverlay) {
+            this.pauseOverlay.destroy(true);
+            this.pauseOverlay = null;
+        }
+    }
+
     update(_time: number, delta: number): void {
-        if (this.gameState.gameOver) return;
+        if (this.gameState.gameOver || this.paused) return;
 
         // Update elapsed time
         this.gameState.elapsedTime += delta / 1000;

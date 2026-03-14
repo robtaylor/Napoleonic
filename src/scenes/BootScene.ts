@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { drawCornerOrnaments, UI_COLORS } from "../ui/PeriodUI";
 
 export class BootScene extends Phaser.Scene {
     constructor() {
@@ -19,14 +20,40 @@ export class BootScene extends Phaser.Scene {
         const x = (width - barWidth) / 2;
         const y = height / 2;
 
+        // Title text above loading bar
+        this.add
+            .text(width / 2, y - 40, "NAPOLIONIC", {
+                fontFamily: "Georgia, serif",
+                fontSize: "32px",
+                color: "#ddaa22",
+                stroke: "#000000",
+                strokeThickness: 2,
+            })
+            .setOrigin(0.5);
+
+        // Corner ornaments around loading area
+        const gfx = this.add.graphics();
+        const ornMargin = 20;
+        drawCornerOrnaments(
+            gfx,
+            x - ornMargin,
+            y - ornMargin,
+            barWidth + ornMargin * 2,
+            barHeight + ornMargin * 2,
+            10,
+        );
+
+        // Loading bar background
         const bg = this.add.graphics();
-        bg.fillStyle(0x3d2b1f, 1);
+        bg.fillStyle(UI_COLORS.darkBrown, 1);
         bg.fillRect(x, y, barWidth, barHeight);
+        bg.lineStyle(1, UI_COLORS.panelBorder, 0.6);
+        bg.strokeRect(x, y, barWidth, barHeight);
 
         const bar = this.add.graphics();
         this.load.on("progress", (value: number) => {
             bar.clear();
-            bar.fillStyle(0xddaa22, 1);
+            bar.fillStyle(UI_COLORS.goldAccent, 1);
             bar.fillRect(x, y, barWidth * value, barHeight);
         });
 

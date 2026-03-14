@@ -2,6 +2,11 @@ import Phaser from "phaser";
 import type { FactionId } from "../data/factions";
 import { SCENARIOS } from "../data/scenarios";
 import type { GameMode } from "../game/state/GameState";
+import {
+    drawParchmentPanel,
+    drawHorizontalRule,
+    drawCornerOrnaments,
+} from "../ui/PeriodUI";
 
 export type AIDifficulty = "easy" | "medium" | "hard";
 
@@ -24,27 +29,59 @@ export class MenuScene extends Phaser.Scene {
     }
 
     create(): void {
-        const { width, height } = this.scale;
+        const { width } = this.scale;
+        const cx = width / 2;
+        const gfx = this.add.graphics();
 
+        // ===== Title section parchment panel =====
+        const titlePanelW = 420;
+        const titlePanelH = 120;
+        drawParchmentPanel(gfx, cx - titlePanelW / 2, 20, titlePanelW, titlePanelH, 0.15);
+        drawCornerOrnaments(gfx, cx - titlePanelW / 2, 20, titlePanelW, titlePanelH, 12);
+
+        // Title
         this.add
-            .text(width / 2, 50, "NAPOLIONIC", {
+            .text(cx, 48, "NAPOLIONIC", {
                 fontFamily: "Georgia, serif",
-                fontSize: "56px",
+                fontSize: "64px",
                 color: "#ddaa22",
+                stroke: "#000000",
+                strokeThickness: 3,
+                letterSpacing: 6,
             })
             .setOrigin(0.5);
 
+        // Subtitle
         this.add
-            .text(width / 2, 105, "The Peninsular War", {
+            .text(cx, 108, "The Peninsular War", {
                 fontFamily: "Georgia, serif",
-                fontSize: "22px",
+                fontSize: "24px",
                 color: "#c4a86a",
             })
             .setOrigin(0.5);
 
+        // Tagline
+        this.add
+            .text(cx, 132, "Iberia, 1808\u20131814", {
+                fontFamily: "Georgia, serif",
+                fontSize: "13px",
+                color: "#8b7d5e",
+            })
+            .setOrigin(0.5);
+
+        // Horizontal rule with diamond below title block
+        drawHorizontalRule(gfx, cx, 152, 350, true);
+
+        // ===== Options panel =====
+        const optPanelW = 520;
+        const optPanelH = 320;
+        const optPanelX = cx - optPanelW / 2;
+        const optPanelY = 162;
+        drawParchmentPanel(gfx, optPanelX, optPanelY, optPanelW, optPanelH, 0.12);
+
         // === Faction selection ===
         this.add
-            .text(width / 2, 155, "Your Faction:", {
+            .text(cx, 178, "Your Faction:", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#a0956a",
@@ -58,10 +95,10 @@ export class MenuScene extends Phaser.Scene {
         ];
 
         const factionBtns: Phaser.GameObjects.Text[] = [];
-        let fx = width / 2 - 220;
+        let fx = cx - 220;
         for (const f of factions) {
             const btn = this.add
-                .text(fx, 180, f.label, {
+                .text(fx, 200, f.label, {
                     fontFamily: "Georgia, serif",
                     fontSize: "16px",
                     color: f.color,
@@ -78,9 +115,12 @@ export class MenuScene extends Phaser.Scene {
             fx += 180;
         }
 
+        // Thin rule between sections
+        drawHorizontalRule(gfx, cx, 237, 280, false);
+
         // === AI Difficulty ===
         this.add
-            .text(width / 2, 225, "AI Difficulty:", {
+            .text(cx, 250, "AI Difficulty:", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#a0956a",
@@ -94,10 +134,10 @@ export class MenuScene extends Phaser.Scene {
         ];
 
         const diffBtns: Phaser.GameObjects.Text[] = [];
-        let dx = width / 2 - 120;
+        let dx = cx - 120;
         for (const d of difficulties) {
             const btn = this.add
-                .text(dx, 250, d.label, {
+                .text(dx, 272, d.label, {
                     fontFamily: "Georgia, serif",
                     fontSize: "16px",
                     color: "#ffffff",
@@ -118,9 +158,12 @@ export class MenuScene extends Phaser.Scene {
             dx += 110;
         }
 
+        // Thin rule
+        drawHorizontalRule(gfx, cx, 310, 280, false);
+
         // === Game Mode ===
         this.add
-            .text(width / 2, 295, "Game Mode:", {
+            .text(cx, 323, "Game Mode:", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#a0956a",
@@ -133,10 +176,10 @@ export class MenuScene extends Phaser.Scene {
         ];
 
         const modeBtns: Phaser.GameObjects.Text[] = [];
-        let mx = width / 2 - 140;
+        let mx = cx - 140;
         for (const m of modes) {
             const btn = this.add
-                .text(mx, 320, m.label, {
+                .text(mx, 345, m.label, {
                     fontFamily: "Georgia, serif",
                     fontSize: "16px",
                     color: "#d4c5a0",
@@ -157,9 +200,12 @@ export class MenuScene extends Phaser.Scene {
             mx += 180;
         }
 
+        // Thin rule
+        drawHorizontalRule(gfx, cx, 382, 280, false);
+
         // === Scenario ===
         this.add
-            .text(width / 2, 365, "Scenario:", {
+            .text(cx, 395, "Scenario:", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#a0956a",
@@ -167,11 +213,11 @@ export class MenuScene extends Phaser.Scene {
             .setOrigin(0.5);
 
         const scenBtns: Phaser.GameObjects.Text[] = [];
-        let sx = width / 2 - 180;
+        let sx = cx - 180;
         for (let i = 0; i < SCENARIOS.length; i++) {
             const s = SCENARIOS[i]!;
             const btn = this.add
-                .text(sx, 390, `${s.year}: ${s.name}`, {
+                .text(sx, 417, `${s.year}: ${s.name}`, {
                     fontFamily: "Georgia, serif",
                     fontSize: "14px",
                     color: "#d4c5a0",
@@ -194,7 +240,7 @@ export class MenuScene extends Phaser.Scene {
 
         // === Multiplayer toggle ===
         const mpBtn = this.add
-            .text(width / 2, 445, "[ Local Multiplayer: OFF ]", {
+            .text(cx, 465, "[ Local Multiplayer: OFF ]", {
                 fontFamily: "Georgia, serif",
                 fontSize: "16px",
                 color: "#888888",
@@ -210,18 +256,43 @@ export class MenuScene extends Phaser.Scene {
             mpBtn.setColor(this.isMultiplayer ? "#ddaa22" : "#888888");
         });
 
-        // === Start button ===
+        // ===== Start button with ornamental panel =====
+        const startPanelW = 260;
+        const startPanelH = 60;
+        drawParchmentPanel(gfx, cx - startPanelW / 2, 500, startPanelW, startPanelH, 0.2);
+        drawCornerOrnaments(gfx, cx - startPanelW / 2, 500, startPanelW, startPanelH, 10);
+
         const startBtn = this.add
-            .text(width / 2, 510, "[ START ]", {
+            .text(cx, 530, "START", {
                 fontFamily: "Georgia, serif",
-                fontSize: "36px",
+                fontSize: "40px",
                 color: "#ffffff",
+                stroke: "#000000",
+                strokeThickness: 2,
             })
             .setOrigin(0.5)
             .setInteractive({ useHandCursor: true });
 
-        startBtn.on("pointerover", () => startBtn.setColor("#ddaa22"));
-        startBtn.on("pointerout", () => startBtn.setColor("#ffffff"));
+        startBtn.on("pointerover", () => {
+            startBtn.setColor("#ddaa22");
+            this.tweens.add({
+                targets: startBtn,
+                scaleX: 1.05,
+                scaleY: 1.05,
+                duration: 120,
+                ease: "Sine.easeOut",
+            });
+        });
+        startBtn.on("pointerout", () => {
+            startBtn.setColor("#ffffff");
+            this.tweens.add({
+                targets: startBtn,
+                scaleX: 1,
+                scaleY: 1,
+                duration: 120,
+                ease: "Sine.easeOut",
+            });
+        });
         startBtn.on("pointerdown", () => {
             const config: GameConfig = {
                 humanFactions: this.isMultiplayer
@@ -234,20 +305,26 @@ export class MenuScene extends Phaser.Scene {
             this.scene.start("GameScene", config);
         });
 
-        // Controls help
+        // ===== Controls help with subtle panel =====
+        drawHorizontalRule(gfx, cx, 575, 300, false);
+
+        const ctrlPanelW = 540;
+        const ctrlPanelH = 55;
+        drawParchmentPanel(gfx, cx - ctrlPanelW / 2, 585, ctrlPanelW, ctrlPanelH, 0.1);
+
         this.add
-            .text(width / 2, height - 70, "Controls: Click node to select, click neighbor to dispatch troops", {
+            .text(cx, 597, "Controls: Click node to select, click neighbor to dispatch troops", {
                 fontFamily: "Georgia, serif",
                 fontSize: "12px",
-                color: "#6b5b3e",
+                color: "#8b7d5e",
             })
             .setOrigin(0.5);
 
         this.add
-            .text(width / 2, height - 50, "E = Fortify | R = Build road | Double-click = Scout | Right-drag = Pan | Wheel = Zoom", {
+            .text(cx, 617, "E = Fortify | R = Build road | Double-click = Scout | Right-drag = Pan | Wheel = Zoom", {
                 fontFamily: "Georgia, serif",
                 fontSize: "12px",
-                color: "#6b5b3e",
+                color: "#8b7d5e",
             })
             .setOrigin(0.5);
     }

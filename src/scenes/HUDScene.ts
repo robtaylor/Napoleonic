@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { GAME_DURATION_S } from "../config/constants";
 import { FACTIONS, type FactionId } from "../data/factions";
 import type { GameState } from "../game/state/GameState";
+import { UI_COLORS } from "../ui/PeriodUI";
 
 const FACTION_OBJECTIVES: Record<Exclude<FactionId, "neutral">, string> = {
     french: "Hold 20+ cities for 60s",
@@ -32,6 +33,61 @@ export class HUDScene extends Phaser.Scene {
 
     create(): void {
         const { width } = this.scale;
+
+        // === Backing panels (single Graphics, drawn once) ===
+        const panels = this.add.graphics();
+        panels.setScrollFactor(0);
+        panels.setDepth(99);
+
+        // Scoreboard panel — top-left
+        const sbW = 290;
+        const sbH = 82;
+        panels.fillStyle(0x2b1d0e, 0.7);
+        panels.fillRoundedRect(4, 4, sbW, sbH, 6);
+        panels.lineStyle(1, UI_COLORS.panelBorder, 0.5);
+        panels.strokeRoundedRect(4, 4, sbW, sbH, 6);
+        // Gold accent line along top
+        panels.lineStyle(2, UI_COLORS.goldDark, 0.4);
+        panels.beginPath();
+        panels.moveTo(8, 6);
+        panels.lineTo(sbW, 6);
+        panels.strokePath();
+
+        // Timer / objective panel — top-right
+        const trW = 220;
+        const trH = 52;
+        const trX = width - trW - 4;
+        panels.fillStyle(0x2b1d0e, 0.7);
+        panels.fillRoundedRect(trX, 4, trW, trH, 6);
+        panels.lineStyle(1, UI_COLORS.panelBorder, 0.5);
+        panels.strokeRoundedRect(trX, 4, trW, trH, 6);
+        panels.lineStyle(2, UI_COLORS.goldDark, 0.4);
+        panels.beginPath();
+        panels.moveTo(trX + 4, 6);
+        panels.lineTo(trX + trW - 4, 6);
+        panels.strokePath();
+
+        // Controls legend panel — bottom-right
+        const clW = 310;
+        const clH = 160;
+        const clX = width - clW - 4;
+        const clY = this.scale.height - clH - 4;
+        panels.fillStyle(0x2b1d0e, 0.75);
+        panels.fillRoundedRect(clX, clY, clW, clH, 6);
+        panels.lineStyle(1, UI_COLORS.panelBorder, 0.5);
+        panels.strokeRoundedRect(clX, clY, clW, clH, 6);
+
+        // "CONTROLS" header in gold
+        this.add
+            .text(width - clW / 2 - 4, clY + 6, "CONTROLS", {
+                fontFamily: "Georgia, serif",
+                fontSize: "10px",
+                color: "#b8891a",
+                letterSpacing: 3,
+            })
+            .setOrigin(0.5, 0)
+            .setScrollFactor(0)
+            .setDepth(100);
 
         // Faction scoreboard at top-left
         const factionIds: FactionId[] = ["french", "british", "spanish"];
@@ -90,7 +146,7 @@ export class HUDScene extends Phaser.Scene {
             .setScrollFactor(0)
             .setDepth(100);
 
-        // Key guide at bottom-right
+        // Key guide at bottom-right (inside controls panel)
         const keyLines = [
             "Click: Select / Dispatch troops",
             "Drag through nodes: Gather & dispatch",
