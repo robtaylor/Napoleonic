@@ -96,9 +96,9 @@ export class HUDScene extends Phaser.Scene {
             this.createMobileControls();
         } else {
             this.createDesktopControls();
+            this.createBottomLeftPanels();
         }
 
-        this.createBottomLeftPanels();
         this.createGuerrillaText();
     }
 
@@ -666,13 +666,20 @@ export class HUDScene extends Phaser.Scene {
     // Guerrilla Text (above legend panel)
     // =========================================================
     private createGuerrillaText(): void {
-        const legendH = this.legendFullH;
-        const actionsH = this.actionsFullH;
-        const blGap = 4;
-        const legendY = this.scale.height - legendH - blGap - actionsH - 4;
+        // Position: above bottom-left panels on desktop, near bottom-left on mobile
+        let textY: number;
+        if (this.isTouch) {
+            textY = this.scale.height - 30;
+        } else {
+            const legendH = this.legendFullH;
+            const actionsH = this.actionsFullH;
+            const blGap = 4;
+            const legendY = this.scale.height - legendH - blGap - actionsH - 4;
+            textY = legendY - 20;
+        }
 
         this.guerrillaText = this.add
-            .text(12, legendY - 20, "", {
+            .text(12, textY, "", {
                 fontFamily: FONT_BODY,
                 fontSize: "12px",
                 color: INK,

@@ -324,7 +324,8 @@ export function drawHUDPanel(
     // Scale segments and roughness to panel size
     const perimeter = 2 * (w + h);
     const segs = Math.max(20, Math.round(perimeter / 5));
-    const roughness = 2;
+    // Rougher edges on the "scroll" edges to make the effect visible
+    const roughness = scroll === "default" ? 2 : 3;
     const rand = seededRandom(seed || Math.round(x * 7 + y * 13));
 
     const x0 = x;
