@@ -18,7 +18,7 @@ import {
     FONT_HEADING,
     FONT_BODY,
 } from "../ui/PeriodUI";
-import { isTouchDevice } from "../utils/platform";
+import { isTouchDevice, isPhone } from "../utils/platform";
 
 const FACTION_OBJECTIVES: Record<Exclude<FactionId, "neutral">, string> = {
     french: "Hold 20+ cities for 60s",
@@ -62,6 +62,9 @@ export class HUDScene extends Phaser.Scene {
     private actionsFullH = 104;
     private scoreboardFullH = 0;
 
+    // Mobile d-pad objects (toggled by zoom level)
+    private dpadObjects: Phaser.GameObjects.GameObject[] = [];
+
     constructor() {
         super({ key: "HUDScene" });
     }
@@ -93,8 +96,14 @@ export class HUDScene extends Phaser.Scene {
         this.createTimer();
 
         if (this.isTouch) {
+            // Phone & tablet: touch controls (d-pad + action buttons)
             this.createMobileControls();
+            // Tablet has room for legend/actions panels too
+            if (!isPhone()) {
+                this.createBottomLeftPanels();
+            }
         } else {
+            // Desktop: keyboard controls legend + legend/actions panels
             this.createDesktopControls();
             this.createBottomLeftPanels();
         }
@@ -106,10 +115,13 @@ export class HUDScene extends Phaser.Scene {
     // Scoreboard (top-left)
     // =========================================================
     private createScoreboard(): void {
-        const jackW = 10;
+        const phone = isPhone();
+        const jackW = phone ? 12 : 10;
         const jackGap = 6;
         const textX = PAD + jackW + jackGap;
         const factionIds: FactionId[] = ["french", "british", "spanish"];
+        const fontSize = phone ? "14px" : "12px";
+        const rowH = phone ? 22 : 20;
         let sbMaxW = 0;
         let y = PAD;
 
@@ -119,47 +131,46 @@ export class HUDScene extends Phaser.Scene {
             const text = this.add
                 .text(textX, y, "", {
                     fontFamily: FONT_BODY,
-                    fontSize: "12px",
+                    fontSize,
                     color: INK,
                 })
                 .setScrollFactor(0)
                 .setDepth(100);
 
-            text.setText("British-Portuguese: 25 cities, 999 troops");
+            // Measure width with representative text
+            const measureText = phone ? "British: 25 / 999" : "British-Portuguese: 25 cities, 999 troops";
+            text.setText(measureText);
             sbMaxW = Math.max(sbMaxW, text.width);
             text.setText("");
 
             this.factionTexts.set(fid, text);
             content.push(text);
-            y += 20;
+            y += rowH;
         }
 
         const sbW = textX + sbMaxW + PAD;
         const sbH = y + PAD - 4;
         this.scoreboardFullH = sbH;
 
-        // Panel graphics
         const gfx = this.add.graphics().setScrollFactor(0).setDepth(99);
         drawHUDPanel(gfx, 4, 4, sbW, sbH, 0.88, 0, "horizontal");
 
         let jackY = PAD + 3;
         for (const fid of factionIds) {
-            drawFactionJack(gfx, PAD, jackY, fid, jackW, 8);
-            jackY += 20;
+            drawFactionJack(gfx, PAD, jackY, fid, jackW, phone ? 10 : 8);
+            jackY += rowH;
         }
 
         this.panelGfx.set("scoreboard", gfx);
         this.panelContent.set("scoreboard", content);
 
-        // Mobile: compact texts + collapsible header
-        if (this.isTouch) {
-            // Compact faction texts (shown when collapsed): just jack + city count
+        if (phone) {
             const compactY = PAD;
             for (const fid of factionIds) {
                 const ct = this.add
-                    .text(textX, compactY + factionIds.indexOf(fid) * 14, "", {
+                    .text(textX, compactY + factionIds.indexOf(fid) * 16, "", {
                         fontFamily: FONT_BODY,
-                        fontSize: "10px",
+                        fontSize: "12px",
                         color: INK,
                     })
                     .setScrollFactor(0)
@@ -168,8 +179,7 @@ export class HUDScene extends Phaser.Scene {
                 this.compactFactionTexts.set(fid, ct);
             }
 
-            // Tap zone over the panel for toggling
-            const compactH = PAD * 2 + factionIds.length * 14;
+            const compactH = PAD * 2 + factionIds.length * 16;
             const tapZone = this.add
                 .rectangle(4, 4, sbW, sbH, 0x000000, 0)
                 .setOrigin(0)
@@ -185,18 +195,21 @@ export class HUDScene extends Phaser.Scene {
     // =========================================================
     private createTimer(): void {
         const { width } = this.scale;
+        const phone = isPhone();
 
         this.timerText = this.add
-            .text(0, 0, "", { fontFamily: FONT_HEADING, fontSize: "15px", color: INK })
+            .text(0, 0, "", { fontFamily: FONT_HEADING, fontSize: phone ? "18px" : "15px", color: INK })
             .setScrollFactor(0)
             .setDepth(100);
 
         this.objectiveText = this.add
-            .text(0, 0, "", { fontFamily: FONT_BODY, fontSize: "10px", color: INK_LIGHT })
+            .text(0, 0, "", { fontFamily: FONT_BODY, fontSize: phone ? "11px" : "10px", color: INK_LIGHT })
             .setScrollFactor(0)
             .setDepth(100);
 
-        this.objectiveText.setText("Objective: After 3 min: match or exceed French cities");
+        // Measure with representative text
+        const measureObj = phone ? "Goal: Match French cities" : "Objective: After 3 min: match or exceed French cities";
+        this.objectiveText.setText(measureObj);
         const objW = this.objectiveText.width;
         this.objectiveText.setText("");
 
@@ -206,11 +219,11 @@ export class HUDScene extends Phaser.Scene {
 
         const trContentW = Math.max(objW, timerW);
         const trW = trContentW + PAD * 2;
-        const trH = 44;
+        const trH = phone ? 48 : 44;
         const trX = width - trW - 4;
 
         this.timerText.setPosition(trX + PAD, 4 + PAD);
-        this.objectiveText.setPosition(trX + PAD, 4 + PAD + 20);
+        this.objectiveText.setPosition(trX + PAD, 4 + PAD + (phone ? 24 : 20));
 
         const gfx = this.add.graphics().setScrollFactor(0).setDepth(99);
         drawHUDPanel(gfx, trX, 4, trW, trH, 0.88, 0, "horizontal");
@@ -269,38 +282,80 @@ export class HUDScene extends Phaser.Scene {
         const { width, height } = this.scale;
         const gameScene = this.scene.get("GameScene");
 
-        // D-pad layout (bottom-right)
-        const dpadR = 20; // button radius
-        const dpadGap = 6;
-        const dpadCX = width - 60;
-        const dpadCY = height - 70;
+        // Action buttons — vertical column on the right edge
+        const actionR = 18;
+        const actionGap = 8;
+        const actionX = width - actionR - 10;
+        const actions: [string, string][] = [
+            ["FORT", "fortify"],
+            ["RAID", "guerrilla"],
+            ["ROAD", "road"],
+        ];
+        // Center the 3 buttons vertically in the lower half
+        const actionBlockH = actions.length * (actionR * 2 + actionGap) - actionGap;
+        const actionStartY = height - actionBlockH - 12;
+
+        const actionGfx = this.add.graphics().setScrollFactor(0).setDepth(100);
+
+        for (let i = 0; i < actions.length; i++) {
+            const [label, action] = actions[i]!;
+            const ay = actionStartY + i * (actionR * 2 + actionGap);
+
+            drawActionButton(actionGfx, actionX, ay, actionR);
+
+            // Text label inside button
+            this.add
+                .text(actionX, ay, label, {
+                    fontFamily: FONT_HEADING,
+                    fontSize: "9px",
+                    color: INK,
+                })
+                .setOrigin(0.5)
+                .setScrollFactor(0)
+                .setDepth(101);
+
+            const zone = this.add
+                .circle(actionX, ay, actionR, 0x000000, 0)
+                .setScrollFactor(0)
+                .setDepth(102)
+                .setInteractive({ useHandCursor: true });
+
+            zone.on("pointerdown", () => {
+                gameScene.events.emit("mobile:action", action);
+            });
+        }
+
+        // D-pad layout (bottom-right, left of action buttons)
+        const dpadR = 16;
+        const dpadGap = 4;
+        const dpadCX = width - actionR * 2 - 30 - dpadR;
+        const dpadCY = height - dpadR * 2 - dpadGap - 20;
 
         const dpadGfx = this.add.graphics().setScrollFactor(0).setDepth(100);
+        this.dpadObjects.push(dpadGfx);
 
-        // Directions: [dx, dy, direction_index]
-        const dirs: [number, number, number, string][] = [
-            [0, -(dpadR * 2 + dpadGap), 0, "up"],       // up
-            [dpadR * 2 + dpadGap, 0, 1, "right"],        // right
-            [0, dpadR * 2 + dpadGap, 2, "down"],         // down
-            [-(dpadR * 2 + dpadGap), 0, 3, "left"],      // left
+        const dirs: [number, number, number][] = [
+            [0, -(dpadR * 2 + dpadGap), 0],       // up
+            [dpadR * 2 + dpadGap, 0, 1],            // right
+            [0, dpadR * 2 + dpadGap, 2],             // down
+            [-(dpadR * 2 + dpadGap), 0, 3],          // left
         ];
 
-        for (const [dx, dy, dirIdx, _name] of dirs) {
+        const panDirs: [number, number][] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+        for (const [dx, dy, dirIdx] of dirs) {
             const bx = dpadCX + dx;
             const by = dpadCY + dy;
             drawDPadArrow(dpadGfx, bx, by, dirIdx, dpadR);
 
-            // Interactive zone
             const zone = this.add
                 .circle(bx, by, dpadR, 0x000000, 0)
                 .setScrollFactor(0)
                 .setDepth(101)
                 .setInteractive({ useHandCursor: true });
+            this.dpadObjects.push(zone);
 
-            // Pan direction vectors
-            const panDirs: [number, number][] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
             const [pdx, pdy] = panDirs[dirIdx]!;
-
             zone.on("pointerdown", () => {
                 gameScene.events.emit("mobile:pan", pdx, pdy);
             });
@@ -309,75 +364,6 @@ export class HUDScene extends Phaser.Scene {
             });
             zone.on("pointerout", () => {
                 gameScene.events.emit("mobile:pan", 0, 0);
-            });
-        }
-
-        // Action buttons (row above d-pad)
-        const actionY = dpadCY - dpadR * 2 - dpadGap - 50;
-        const actionR = 22;
-        const actionGap = 12;
-        const actions: [string, string][] = [
-            ["E", "fortify"],
-            ["G", "guerrilla"],
-            ["R", "road"],
-        ];
-        const totalActionsW = actions.length * actionR * 2 + (actions.length - 1) * actionGap;
-        const actionStartX = dpadCX - totalActionsW / 2 + actionR;
-
-        const actionGfx = this.add.graphics().setScrollFactor(0).setDepth(100);
-
-        // Icon graphics layer (drawn on top of buttons)
-        const iconGfx = this.add.graphics().setScrollFactor(0).setDepth(101);
-
-        for (let i = 0; i < actions.length; i++) {
-            const [, action] = actions[i]!;
-            const ax = actionStartX + i * (actionR * 2 + actionGap);
-
-            drawActionButton(actionGfx, ax, actionY, actionR);
-
-            // Draw contextual icon inside each button
-            if (action === "fortify") {
-                // Fortress icon (mini crenellated square)
-                drawMiniNode(iconGfx, ax, actionY, "fortress", 8);
-            } else if (action === "guerrilla") {
-                // Guerrilla "G" in gold with dark stroke (matches in-game)
-                this.add
-                    .text(ax, actionY, "G", {
-                        fontFamily: FONT_HEADING,
-                        fontSize: "16px",
-                        color: "#ddaa22",
-                        stroke: "#000000",
-                        strokeThickness: 2,
-                    })
-                    .setOrigin(0.5)
-                    .setScrollFactor(0)
-                    .setDepth(101);
-            } else {
-                // Road icon (mini edge line)
-                drawMiniEdge(iconGfx, ax - 8, actionY, ax + 8, actionY, "solid");
-            }
-
-            // Small label below
-            const labelText = action === "fortify" ? "Fortify" : action === "guerrilla" ? "Guerrilla" : "Road";
-            this.add
-                .text(ax, actionY + actionR + 6, labelText, {
-                    fontFamily: FONT_BODY,
-                    fontSize: "8px",
-                    color: INK_FAINT,
-                })
-                .setOrigin(0.5)
-                .setScrollFactor(0)
-                .setDepth(100);
-
-            // Interactive zone
-            const zone = this.add
-                .circle(ax, actionY, actionR, 0x000000, 0)
-                .setScrollFactor(0)
-                .setDepth(102)
-                .setInteractive({ useHandCursor: true });
-
-            zone.on("pointerdown", () => {
-                gameScene.events.emit("mobile:action", action);
             });
         }
     }
@@ -666,9 +652,9 @@ export class HUDScene extends Phaser.Scene {
     // Guerrilla Text (above legend panel)
     // =========================================================
     private createGuerrillaText(): void {
-        // Position: above bottom-left panels on desktop, near bottom-left on mobile
+        // Position: above bottom-left panels on desktop/tablet, near bottom-left on phone
         let textY: number;
-        if (this.isTouch) {
+        if (isPhone()) {
             textY = this.scale.height - 30;
         } else {
             const legendH = this.legendFullH;
@@ -772,23 +758,45 @@ export class HUDScene extends Phaser.Scene {
 
         const sbCollapsed = this.collapsed.get("scoreboard") ?? false;
 
+        // Short faction names for mobile
+        const shortNames: Record<string, string> = {
+            french: "French",
+            british: "British",
+            spanish: "Spanish",
+        };
+
+        const phone = isPhone();
         for (const [fid, text] of this.factionTexts) {
             const state = this.gameState.factions.get(fid);
             if (!state) continue;
-            const faction = FACTIONS[fid];
-            const status = state.eliminated ? " [ELIM]" : "";
-            text.setText(
-                `${faction.name}: ${state.nodeCount} cities, ${state.totalTroops} troops${status}`,
-            );
+            const status = state.eliminated ? " X" : "";
+            if (phone) {
+                const name = shortNames[fid] ?? fid;
+                text.setText(`${name}: ${state.nodeCount} / ${state.totalTroops}${status}`);
+            } else {
+                const faction = FACTIONS[fid];
+                text.setText(
+                    `${faction.name}: ${state.nodeCount} cities, ${state.totalTroops} troops${status}`,
+                );
+            }
         }
 
-        // Compact scoreboard texts (mobile collapsed)
-        if (this.isTouch) {
+        // Compact scoreboard texts (phone collapsed)
+        if (phone) {
             for (const [fid, text] of this.compactFactionTexts) {
                 const state = this.gameState.factions.get(fid);
                 if (!state) continue;
                 text.setText(`${state.nodeCount}`);
                 text.setVisible(sbCollapsed);
+            }
+
+            // Toggle d-pad visibility based on zoom level
+            const gameScene = this.scene.get("GameScene") as Phaser.Scene;
+            const cam = gameScene.cameras?.main;
+            const showDpad = cam ? cam.zoom > 0.55 : true;
+            for (const obj of this.dpadObjects) {
+                if (obj instanceof Phaser.GameObjects.Graphics) obj.setVisible(showDpad);
+                else if (obj instanceof Phaser.GameObjects.Shape) obj.setVisible(showDpad);
             }
         }
 
@@ -808,10 +816,20 @@ export class HUDScene extends Phaser.Scene {
             );
         }
 
+        // Short objectives for mobile
+        const MOBILE_OBJECTIVES: Record<Exclude<FactionId, "neutral">, string> = {
+            french: "Hold 20+ cities 60s",
+            british: "Reduce France to 5 cities",
+            spanish: "Match French cities (after 3m)",
+        };
+
         if (this.humanFaction !== "neutral") {
-            const obj = FACTION_OBJECTIVES[this.humanFaction];
-            if (obj) {
-                this.objectiveText.setText(`Objective: ${obj}`);
+            if (phone) {
+                const obj = MOBILE_OBJECTIVES[this.humanFaction];
+                if (obj) this.objectiveText.setText(`Goal: ${obj}`);
+            } else {
+                const obj = FACTION_OBJECTIVES[this.humanFaction];
+                if (obj) this.objectiveText.setText(`Objective: ${obj}`);
             }
         }
 

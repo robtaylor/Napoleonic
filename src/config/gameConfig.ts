@@ -4,12 +4,12 @@ import { MenuScene } from "../scenes/MenuScene";
 import { GameScene } from "../scenes/GameScene";
 import { HUDScene } from "../scenes/HUDScene";
 import { VictoryScene } from "../scenes/VictoryScene";
-import { isTouchDevice } from "../utils/platform";
+import { isPhone } from "../utils/platform";
 
-// Lower resolution on mobile so text/UI elements are physically larger
-const mobile = isTouchDevice();
-const GAME_W = mobile ? 854 : 1280;
-const GAME_H = mobile ? 480 : 720;
+// Lower resolution on phones so text/UI elements are physically larger.
+// Tablets and desktops use full resolution.
+const GAME_W = isPhone() ? 854 : 1280;
+const GAME_H = isPhone() ? 480 : 720;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,

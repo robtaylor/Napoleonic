@@ -702,28 +702,39 @@ export class GameScene extends Phaser.Scene {
         this.game.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
         // Touch: pinch-zoom + two-finger pan
+        // Uses raw DOM touch events to bypass Phaser's scene-level input
+        // routing (HUD overlay scene would otherwise consume pointer2).
         if (isTouchDevice()) {
-            this.input.addPointer(1); // Enable pointer2
+            const canvas = this.game.canvas;
+            const scaleM = this.scale;
 
-            this.input.on("pointerdown", () => {
-                const p1 = this.input.pointer1;
-                const p2 = this.input.pointer2;
-                if (p1.isDown && p2.isDown) {
+            const getCanvasCoords = (touch: Touch): { x: number; y: number } => {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: (touch.clientX - rect.left) * (scaleM.width / rect.width),
+                    y: (touch.clientY - rect.top) * (scaleM.height / rect.height),
+                };
+            };
+
+            canvas.addEventListener("touchstart", (e: TouchEvent) => {
+                if (e.touches.length === 2) {
                     this.isTouchCam = true;
-                    this.prevPinchDist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
-                    this.prevMidX = (p1.x + p2.x) / 2;
-                    this.prevMidY = (p1.y + p2.y) / 2;
+                    const t0 = getCanvasCoords(e.touches[0]!);
+                    const t1 = getCanvasCoords(e.touches[1]!);
+                    this.prevPinchDist = Phaser.Math.Distance.Between(t0.x, t0.y, t1.x, t1.y);
+                    this.prevMidX = (t0.x + t1.x) / 2;
+                    this.prevMidY = (t0.y + t1.y) / 2;
                 }
-            });
+            }, { passive: true });
 
-            this.input.on("pointermove", () => {
-                const p1 = this.input.pointer1;
-                const p2 = this.input.pointer2;
-                if (!p1.isDown || !p2.isDown || !this.isTouchCam) return;
+            canvas.addEventListener("touchmove", (e: TouchEvent) => {
+                if (e.touches.length < 2 || !this.isTouchCam) return;
 
-                const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
-                const midX = (p1.x + p2.x) / 2;
-                const midY = (p1.y + p2.y) / 2;
+                const t0 = getCanvasCoords(e.touches[0]!);
+                const t1 = getCanvasCoords(e.touches[1]!);
+                const dist = Phaser.Math.Distance.Between(t0.x, t0.y, t1.x, t1.y);
+                const midX = (t0.x + t1.x) / 2;
+                const midY = (t0.y + t1.y) / 2;
 
                 // Pinch zoom
                 if (this.prevPinchDist > 0) {
@@ -738,16 +749,12 @@ export class GameScene extends Phaser.Scene {
                 this.prevPinchDist = dist;
                 this.prevMidX = midX;
                 this.prevMidY = midY;
-            });
+            }, { passive: true });
 
-            this.input.on("pointerup", () => {
-                const p1 = this.input.pointer1;
-                const p2 = this.input.pointer2;
-                if (!p1.isDown || !p2.isDown) {
-                    this.isTouchCam = false;
-                    this.prevPinchDist = 0;
-                }
-            });
+            canvas.addEventListener("touchend", () => {
+                this.isTouchCam = false;
+                this.prevPinchDist = 0;
+            }, { passive: true });
         }
     }
 
