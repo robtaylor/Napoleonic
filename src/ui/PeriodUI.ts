@@ -309,6 +309,8 @@ export function drawRoughParchmentPage(
  * Draw a HUD-style panel with rough papery edges — parchment fill
  * with torn-edge silhouette. Designed for in-game overlays over terrain.
  */
+export type ScrollOrientation = "default" | "horizontal" | "vertical";
+
 export function drawHUDPanel(
     gfx: Phaser.GameObjects.Graphics,
     x: number,
@@ -317,6 +319,7 @@ export function drawHUDPanel(
     h: number,
     alpha = 0.88,
     seed = 0,
+    scroll: ScrollOrientation = "default",
 ): void {
     // Scale segments and roughness to panel size
     const perimeter = 2 * (w + h);
@@ -335,30 +338,39 @@ export function drawHUDPanel(
     const botSegs = topSegs;
     const leftSegs = rightSegs;
 
+    // Determine which edges get rough treatment based on scroll orientation:
+    // "horizontal" scroll: rough top/bottom, smooth left/right (unfurls horizontally)
+    // "vertical" scroll: rough left/right, smooth top/bottom (unfurls vertically)
+    // "default": rough on all edges
+    const roughTop = scroll !== "vertical";
+    const roughBot = scroll !== "vertical";
+    const roughLeft = scroll !== "horizontal";
+    const roughRight = scroll !== "horizontal";
+
     const points: { x: number; y: number }[] = [];
 
     // Top edge
     for (let i = 0; i <= topSegs; i++) {
         const t = i / topSegs;
-        const jitter = (rand() - 0.5) * 2 * roughness;
+        const jitter = roughTop ? (rand() - 0.5) * 2 * roughness : 0;
         points.push({ x: x0 + t * (x1 - x0), y: y0 + jitter });
     }
     // Right edge
     for (let i = 1; i <= rightSegs; i++) {
         const t = i / rightSegs;
-        const jitter = (rand() - 0.5) * 2 * roughness;
+        const jitter = roughRight ? (rand() - 0.5) * 2 * roughness : 0;
         points.push({ x: x1 + jitter, y: y0 + t * (y1 - y0) });
     }
     // Bottom edge
     for (let i = 1; i <= botSegs; i++) {
         const t = i / botSegs;
-        const jitter = (rand() - 0.5) * 2 * roughness;
+        const jitter = roughBot ? (rand() - 0.5) * 2 * roughness : 0;
         points.push({ x: x1 - t * (x1 - x0), y: y1 + jitter });
     }
     // Left edge
     for (let i = 1; i < leftSegs; i++) {
         const t = i / leftSegs;
-        const jitter = (rand() - 0.5) * 2 * roughness;
+        const jitter = roughLeft ? (rand() - 0.5) * 2 * roughness : 0;
         points.push({ x: x0 + jitter, y: y1 - t * (y1 - y0) });
     }
 

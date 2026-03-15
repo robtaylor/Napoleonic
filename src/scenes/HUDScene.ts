@@ -140,7 +140,7 @@ export class HUDScene extends Phaser.Scene {
 
         // Panel graphics
         const gfx = this.add.graphics().setScrollFactor(0).setDepth(99);
-        drawHUDPanel(gfx, 4, 4, sbW, sbH);
+        drawHUDPanel(gfx, 4, 4, sbW, sbH, 0.88, 0, "horizontal");
 
         let jackY = PAD + 3;
         for (const fid of factionIds) {
@@ -213,7 +213,7 @@ export class HUDScene extends Phaser.Scene {
         this.objectiveText.setPosition(trX + PAD, 4 + PAD + 20);
 
         const gfx = this.add.graphics().setScrollFactor(0).setDepth(99);
-        drawHUDPanel(gfx, trX, 4, trW, trH);
+        drawHUDPanel(gfx, trX, 4, trW, trH, 0.88, 0, "horizontal");
     }
 
     // =========================================================
@@ -259,7 +259,7 @@ export class HUDScene extends Phaser.Scene {
         ctrlText.setPosition(clX + PAD, clY + PAD + ctrlHeader.height + 4);
 
         const gfx = this.add.graphics().setScrollFactor(0).setDepth(99);
-        drawHUDPanel(gfx, clX, clY, clW, clH);
+        drawHUDPanel(gfx, clX, clY, clW, clH, 0.88, 0, "horizontal");
     }
 
     // =========================================================
@@ -326,25 +326,39 @@ export class HUDScene extends Phaser.Scene {
 
         const actionGfx = this.add.graphics().setScrollFactor(0).setDepth(100);
 
+        // Icon graphics layer (drawn on top of buttons)
+        const iconGfx = this.add.graphics().setScrollFactor(0).setDepth(101);
+
         for (let i = 0; i < actions.length; i++) {
-            const [label, action] = actions[i]!;
+            const [, action] = actions[i]!;
             const ax = actionStartX + i * (actionR * 2 + actionGap);
 
             drawActionButton(actionGfx, ax, actionY, actionR);
 
-            // Letter label
-            this.add
-                .text(ax, actionY, label!, {
-                    fontFamily: FONT_HEADING,
-                    fontSize: "14px",
-                    color: INK,
-                })
-                .setOrigin(0.5)
-                .setScrollFactor(0)
-                .setDepth(101);
+            // Draw contextual icon inside each button
+            if (action === "fortify") {
+                // Fortress icon (mini crenellated square)
+                drawMiniNode(iconGfx, ax, actionY, "fortress", 8);
+            } else if (action === "guerrilla") {
+                // Guerrilla "G" in gold with dark stroke (matches in-game)
+                this.add
+                    .text(ax, actionY, "G", {
+                        fontFamily: FONT_HEADING,
+                        fontSize: "16px",
+                        color: "#ddaa22",
+                        stroke: "#000000",
+                        strokeThickness: 2,
+                    })
+                    .setOrigin(0.5)
+                    .setScrollFactor(0)
+                    .setDepth(101);
+            } else {
+                // Road icon (mini edge line)
+                drawMiniEdge(iconGfx, ax - 8, actionY, ax + 8, actionY, "solid");
+            }
 
             // Small label below
-            const labelText = action === "fortify" ? "Fort" : action === "guerrilla" ? "Guerr" : "Road";
+            const labelText = action === "fortify" ? "Fortify" : action === "guerrilla" ? "Guerrilla" : "Road";
             this.add
                 .text(ax, actionY + actionR + 6, labelText, {
                     fontFamily: FONT_BODY,
@@ -394,7 +408,7 @@ export class HUDScene extends Phaser.Scene {
 
         // Panel background
         const panelGfx = this.add.graphics().setScrollFactor(0).setDepth(99);
-        drawHUDPanel(panelGfx, blX, legendY, blW, displayH, 0.88, 777);
+        drawHUDPanel(panelGfx, blX, legendY, blW, displayH, 0.88, 777, "horizontal");
         this.panelGfx.set("legend", panelGfx);
 
         // Header with chevron
@@ -556,7 +570,7 @@ export class HUDScene extends Phaser.Scene {
         const displayH = isCollapsed ? HEADER_H : actionsH;
 
         const panelGfx = this.add.graphics().setScrollFactor(0).setDepth(99);
-        drawHUDPanel(panelGfx, blX, actionsY, blW, displayH, 0.88, 888);
+        drawHUDPanel(panelGfx, blX, actionsY, blW, displayH, 0.88, 888, "horizontal");
         this.panelGfx.set("actions", panelGfx);
 
         const chevron = isCollapsed ? "\u25B8" : "\u25BE";
@@ -698,7 +712,7 @@ export class HUDScene extends Phaser.Scene {
         if (gfx && panelX !== undefined && panelY !== undefined) {
             gfx.clear();
             const h = newCollapsed ? collapsedH : fullH;
-            drawHUDPanel(gfx, panelX, panelY, panelW, h, 0.88, seed ?? 0);
+            drawHUDPanel(gfx, panelX, panelY, panelW, h, 0.88, seed ?? 0, "horizontal");
         }
 
         // Scoreboard special case: show/hide compact texts
@@ -712,7 +726,7 @@ export class HUDScene extends Phaser.Scene {
                 const factionIds: FactionId[] = ["french", "british", "spanish"];
                 const compactH = PAD * 2 + factionIds.length * 14;
                 const h = newCollapsed ? compactH : this.scoreboardFullH;
-                drawHUDPanel(sbGfx, 4, 4, sbW, h);
+                drawHUDPanel(sbGfx, 4, 4, sbW, h, 0.88, 0, "horizontal");
 
                 // Jacks — draw for both states
                 let jackY = newCollapsed ? PAD + 2 : PAD + 3;
