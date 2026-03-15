@@ -49,6 +49,7 @@ import {
     FONT_HEADING,
     FONT_BODY,
 } from "../ui/PeriodUI";
+import { isTouchDevice } from "../utils/platform";
 
 export class GameScene extends Phaser.Scene {
     private config: GameConfig = {
@@ -93,6 +94,15 @@ export class GameScene extends Phaser.Scene {
     private dragStartY = 0;
     private camStartX = 0;
     private camStartY = 0;
+
+    // Touch camera state (pinch-zoom + two-finger pan)
+    private prevPinchDist = 0;
+    private prevMidX = 0;
+    private prevMidY = 0;
+    private isTouchCam = false;
+
+    // D-pad pan velocity (set by HUDScene mobile events)
+    private panVelocity = { x: 0, y: 0 };
 
     constructor() {
         super({ key: "GameScene" });
@@ -275,6 +285,17 @@ export class GameScene extends Phaser.Scene {
                 this.selectionManager.onScenePointerUp();
             }
         });
+
+        // Mobile event listeners
+        if (isTouchDevice()) {
+            this.events.on("mobile:action", (action: string) => {
+                const key = action === "fortify" ? "e" : action === "guerrilla" ? "g" : "r";
+                this.selectionManager.handleKeyPress(key);
+            });
+            this.events.on("mobile:pan", (dx: number, dy: number) => {
+                this.panVelocity = { x: dx, y: dy };
+            });
+        }
 
         // Launch HUD as overlay
         const humanFaction = this.config.humanFactions[0] ?? "british";
@@ -648,12 +669,13 @@ export class GameScene extends Phaser.Scene {
             this.scale.height + boundsMargin * 2,
         );
 
+        // Desktop: wheel zoom
         this.input.on("wheel", (_pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
-            // Scale zoom proportionally to delta (handles both mouse wheel and trackpad pinch)
             const zoomDelta = -deltaY * 0.003;
             cam.setZoom(Phaser.Math.Clamp(cam.zoom + zoomDelta, 0.5, 2.5));
         });
 
+        // Desktop: right/middle-click drag to pan
         this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
             if (pointer.rightButtonDown() || pointer.middleButtonDown()) {
                 this.isDragging = true;
@@ -678,6 +700,55 @@ export class GameScene extends Phaser.Scene {
         });
 
         this.game.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Touch: pinch-zoom + two-finger pan
+        if (isTouchDevice()) {
+            this.input.addPointer(1); // Enable pointer2
+
+            this.input.on("pointerdown", () => {
+                const p1 = this.input.pointer1;
+                const p2 = this.input.pointer2;
+                if (p1.isDown && p2.isDown) {
+                    this.isTouchCam = true;
+                    this.prevPinchDist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+                    this.prevMidX = (p1.x + p2.x) / 2;
+                    this.prevMidY = (p1.y + p2.y) / 2;
+                }
+            });
+
+            this.input.on("pointermove", () => {
+                const p1 = this.input.pointer1;
+                const p2 = this.input.pointer2;
+                if (!p1.isDown || !p2.isDown || !this.isTouchCam) return;
+
+                const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+
+                // Pinch zoom
+                if (this.prevPinchDist > 0) {
+                    const zoomDelta = (dist - this.prevPinchDist) * 0.005;
+                    cam.setZoom(Phaser.Math.Clamp(cam.zoom + zoomDelta, 0.5, 2.5));
+                }
+
+                // Two-finger pan
+                cam.scrollX -= (midX - this.prevMidX) / cam.zoom;
+                cam.scrollY -= (midY - this.prevMidY) / cam.zoom;
+
+                this.prevPinchDist = dist;
+                this.prevMidX = midX;
+                this.prevMidY = midY;
+            });
+
+            this.input.on("pointerup", () => {
+                const p1 = this.input.pointer1;
+                const p2 = this.input.pointer2;
+                if (!p1.isDown || !p2.isDown) {
+                    this.isTouchCam = false;
+                    this.prevPinchDist = 0;
+                }
+            });
+        }
     }
 
     private togglePauseMenu(): void {
@@ -773,6 +844,14 @@ export class GameScene extends Phaser.Scene {
 
     update(_time: number, delta: number): void {
         if (this.gameState.gameOver || this.paused) return;
+
+        // D-pad camera pan
+        if (this.panVelocity.x !== 0 || this.panVelocity.y !== 0) {
+            const cam = this.cameras.main;
+            const speed = 300 / cam.zoom;
+            cam.scrollX += this.panVelocity.x * speed * (delta / 1000);
+            cam.scrollY += this.panVelocity.y * speed * (delta / 1000);
+        }
 
         // Update elapsed time
         this.gameState.elapsedTime += delta / 1000;

@@ -550,6 +550,61 @@ export function drawMiniDispatch(
 }
 
 /**
+ * Draw a circular parchment action button for mobile UI.
+ * Filled circle with ink border; highlighted border when active.
+ */
+export function drawActionButton(
+    gfx: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    radius: number,
+    active = false,
+): void {
+    // Drop shadow
+    gfx.fillStyle(UI_COLORS.shadow, 0.2);
+    gfx.fillCircle(cx + 1, cy + 1, radius);
+    // Fill
+    gfx.fillStyle(UI_COLORS.parchmentDark, 0.92);
+    gfx.fillCircle(cx, cy, radius);
+    // Border
+    const borderAlpha = active ? 0.9 : 0.5;
+    const borderWidth = active ? 2 : 1;
+    gfx.lineStyle(borderWidth, active ? 0xcc2222 : UI_COLORS.ink, borderAlpha);
+    gfx.strokeCircle(cx, cy, radius);
+}
+
+/**
+ * Draw a d-pad arrow triangle on a circular parchment button.
+ * Direction: 0=up, 1=right, 2=down, 3=left.
+ */
+export function drawDPadArrow(
+    gfx: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    direction: number,
+    radius: number,
+): void {
+    // Button background
+    drawActionButton(gfx, cx, cy, radius);
+
+    // Arrow triangle
+    const arrowSize = radius * 0.45;
+    gfx.fillStyle(UI_COLORS.ink, 0.7);
+    gfx.beginPath();
+    const angle = (direction * Math.PI) / 2 - Math.PI / 2; // 0=up
+    const tipX = cx + Math.cos(angle) * arrowSize;
+    const tipY = cy + Math.sin(angle) * arrowSize;
+    const baseAngle1 = angle + (Math.PI * 2) / 3;
+    const baseAngle2 = angle - (Math.PI * 2) / 3;
+    const baseR = arrowSize * 0.7;
+    gfx.moveTo(tipX, tipY);
+    gfx.lineTo(cx + Math.cos(baseAngle1) * baseR, cy + Math.sin(baseAngle1) * baseR);
+    gfx.lineTo(cx + Math.cos(baseAngle2) * baseR, cy + Math.sin(baseAngle2) * baseR);
+    gfx.closePath();
+    gfx.fillPath();
+}
+
+/**
  * Draw a short line segment sample for edge styles.
  */
 export function drawMiniEdge(

@@ -10,7 +10,10 @@
         "preview": "vite preview --config vite/config.prod.mjs",
         "test": "vitest run",
         "test:watch": "vitest",
-        "generate:terrain": "tsx scripts/generate-terrain.ts"
+        "generate:terrain": "tsx scripts/generate-terrain.ts",
+        "cap:sync": "npm run build && npx cap sync",
+        "cap:ios": "npx cap open ios",
+        "cap:android": "npx cap open android"
     },
     "devDependencies": {
         "@turf/turf": "^7.3.4",
@@ -22,6 +25,8 @@
         "vitest": "^3.0.0"
     },
     "dependencies": {
+        "@capacitor/cli": "^8.2.0",
+        "@capacitor/core": "^8.2.0",
         "d3-geo": "^3.1.1",
         "phaser": "^3.90.0",
         "terser": "^5.39.0"
