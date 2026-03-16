@@ -29,9 +29,34 @@
             width: 100vw;
             height: 100vh;
         }
+        /* Portrait lock overlay — shown when device is held upright */
+        #rotate-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #2b1d0e;
+            color: #e8daba;
+            font-family: serif;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 16px;
+        }
+        #rotate-overlay .icon { font-size: 48px; }
+        #rotate-overlay .msg { font-size: 20px; }
+        @media (orientation: portrait) {
+            #rotate-overlay { display: flex; }
+            #game-container { display: none; }
+        }
     </style>
 </head>
 <body>
+    <div id="rotate-overlay">
+        <div class="icon">&#x21BB;</div>
+        <div class="msg">Rotate your device to landscape</div>
+    </div>
     <div id="game-container"></div>
     <script type="module" src="/src/main.ts"></script>
     <script>
