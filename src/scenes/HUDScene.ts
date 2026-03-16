@@ -325,10 +325,10 @@ export class HUDScene extends Phaser.Scene {
             });
         }
 
-        // D-pad layout (bottom-right, left of action buttons)
+        // D-pad layout (bottom-left)
         const dpadR = 16;
         const dpadGap = 4;
-        const dpadCX = width - actionR * 2 - 30 - dpadR;
+        const dpadCX = dpadR * 2 + dpadGap + 20;
         const dpadCY = height - dpadR * 2 - dpadGap - 20;
 
         const dpadGfx = this.add.graphics().setScrollFactor(0).setDepth(100);
